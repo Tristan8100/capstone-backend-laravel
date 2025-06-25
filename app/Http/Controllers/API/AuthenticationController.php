@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\AlumniList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -22,20 +23,36 @@ class AuthenticationController extends Controller
     {
         try {
             $validated = $request->validate([
+                'student_id'  => 'required|integer',
                 'first_name'  => 'required|string|min:2',
                 'middle_name' => 'nullable|string|min:1',
                 'last_name'   => 'required|string|min:2',
                 'email'       => 'required|string|email|max:255|unique:users',
                 'password'    => 'required|string|min:8',
+                'batch' => 'required|integer|digits:4',
             ]);
 
             //REMEMBER THE ALUMNI AUTHENTICATION LOGIC HERE
-            do {
-                $id = random_int(1000000000, 9999999999);
-            } while (User::where('id', $id)->exists());
+            $alumniMatch = AlumniList::where('first_name', $validated['first_name'])
+            ->where('last_name', $validated['last_name'])
+            ->where('batch', $validated['batch'])
+            ->where('student_id', $validated['student_id'])
+            ->when($validated['middle_name'], function ($query, $middle) {
+                return $query->where('middle_name', $middle);
+            })
+            ->first();
+            //DON'T FORGET THE COURSE IF HAVE COURSE TABLE
+
+            if (!$alumniMatch) {
+                return response()->json([
+                    'response_code' => 403,
+                    'status'        => 'error',
+                    'message'       => 'You are not listed as an alumni. Registration is restricted.',
+                ], 403);
+            }
 
             $user = User::create([
-                'id'         => $id, // Or replace with your custom large digit ID logic
+                'id'         => $alumniMatch->student_id, // Or replace with your custom large digit ID logic
                 'first_name' => $validated['first_name'],
                 'middle_name'=> $validated['middle_name'] ?? null,
                 'last_name'  => $validated['last_name'],
@@ -104,6 +121,7 @@ class AuthenticationController extends Controller
             }
 
             $user = Auth::user();
+            $user->tokens()->delete();
             $token = $user->createToken('authToken')->plainTextToken;
 
             return response()->json([
