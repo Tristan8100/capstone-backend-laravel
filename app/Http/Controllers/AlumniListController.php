@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AlumniList as Alumni;
 use Illuminate\Support\Facades\Validator;
-
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\AlumniImport;
 class AlumniListController extends Controller
 {
     // Get all alumni
@@ -86,5 +87,16 @@ class AlumniListController extends Controller
         $alumni->delete();
 
         return response()->json(['message' => 'Alumni deleted']);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,csv,txt'
+        ]);
+
+        Excel::import(new AlumniImport, $request->file('file'));
+
+        return response()->json(['message' => 'Alumni imported successfully']);
     }
 }
