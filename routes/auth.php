@@ -1,8 +1,16 @@
 <?php
+
+use App\Http\Controllers\API\AdminAuthenticationController;
 use App\Http\Controllers\API\ResetPasswordController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\VerifyEmailController;
 use App\Http\Controllers\API\AuthenticationController;
+
+//USER
+Route::middleware('auth:user-api')->group(function () {
+    Route::get('get-user', [AuthenticationController::class, 'userInfo'])->name('get-user');
+    Route::post('logout', [AuthenticationController::class, 'logOut'])->name('logout');
+});
 
 Route::post('register', [AuthenticationController::class, 'register'])->name('register');
 
@@ -27,3 +35,11 @@ Route::post('/forgot-password-token', [ResetPasswordController::class, 'verifyOt
 Route::post('/reset-password', [ResetPasswordController::class, 'resetPassword'])
     ->name('password.update')
     ->middleware(['throttle:6,1']);
+
+
+//ADMIN
+Route::post('/admin-login', [AdminAuthenticationController::class, 'login']);
+
+Route::middleware('auth:admin-api')->group(function () {
+    Route::post('admin-logout', [AuthenticationController::class, 'logOut'])->name('logout');
+});
