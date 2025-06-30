@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\EmailVerification;
 use Illuminate\Support\Str;
-
+use App\Models\Course;
 class AuthenticationController extends Controller
 {
     /**
@@ -29,55 +29,68 @@ class AuthenticationController extends Controller
                 'last_name'   => 'required|string|min:2',
                 'email'       => 'required|string|email|max:255|unique:users',
                 'password'    => 'required|string|min:8',
-                'batch' => 'required|integer|digits:4',
+                'batch'       => 'required|integer|digits:4',
+                'course_name' => 'required|string|exists:courses,name',
             ]);
 
-            //REMEMBER THE ALUMNI AUTHENTICATION LOGIC HERE
+            // Find matching alumni record with course_name check
             $alumniMatch = AlumniList::where('first_name', $validated['first_name'])
-            ->where('last_name', $validated['last_name'])
-            ->where('batch', $validated['batch'])
-            ->where('student_id', $validated['student_id'])
-            ->when($validated['middle_name'], function ($query, $middle) {
-                return $query->where('middle_name', $middle);
-            })
-            ->first();
-            //DON'T FORGET THE COURSE IF HAVE COURSE TABLE
+                ->where('last_name', $validated['last_name'])
+                ->where('batch', $validated['batch'])
+                ->where('student_id', $validated['student_id'])
+                ->where('course', $validated['course_name']) // compare course name here
+                ->when($validated['middle_name'], function ($query, $middle) {
+                    return $query->where('middle_name', $middle);
+                })
+                ->first();
 
             if (!$alumniMatch) {
                 return response()->json([
                     'response_code' => 403,
                     'status'        => 'error',
-                    'message'       => 'You are not listed as an alumni. Registration is restricted.',
+                    'message'       => 'You are not listed as an alumni or course does not match. Registration is restricted.',
                 ], 403);
             }
 
+            // Find course by name from Course model to get FK
+            $course = Course::where('name', $validated['course_name'])->first();
+
+            if (!$course) {
+                return response()->json([
+                    'response_code' => 404,
+                    'status'        => 'error',
+                    'message'       => 'Course not found.',
+                ], 404);
+            }
+
+            // Create user with course_id foreign key
             $user = User::create([
-                'id'         => $alumniMatch->student_id, // Or replace with your custom large digit ID logic
-                'first_name' => $validated['first_name'],
-                'middle_name'=> $validated['middle_name'] ?? null,
-                'last_name'  => $validated['last_name'],
-                'email'      => $validated['email'],
-                'password'   => Hash::make($validated['password']),
+                'id'          => $alumniMatch->student_id, // keep your ID logic
+                'first_name'  => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name'   => $validated['last_name'],
+                'email'       => $validated['email'],
+                'password'    => Hash::make($validated['password']),
+                'course_id'   => $course->id, // save FK here
             ]);
 
             // Generate 6-digit OTP
             $otp = rand(100000, 999999);
 
-            // Create or update the OTP record
+            // Create or update OTP record
             EmailVerification::updateOrCreate(
                 ['email' => $user->email],
                 [
-                    'otp' => $otp,
-                    'verified' => false,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'otp'       => $otp,
+                    'verified'  => false,
+                    'created_at'=> now(),
+                    'updated_at'=> now(),
                 ]
             );
 
-            // Send OTP email (using Laravel mail)
-            $userEmail = $user->email;
-            Mail::raw("Your verification OTP is: $otp. It expires in 10 minutes.", function ($message) use ($userEmail) {
-                $message->to($userEmail)
+            // Send OTP email
+            Mail::raw("Your verification OTP is: $otp. It expires in 10 minutes.", function ($message) use ($user) {
+                $message->to($user->email)
                         ->subject('Email Verification OTP');
             });
 
@@ -100,6 +113,7 @@ class AuthenticationController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Login and return auth token.

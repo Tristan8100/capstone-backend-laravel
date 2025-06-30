@@ -74,4 +74,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(PostComment::class);
     }
+
+    //COURSE MODULE
+    public function course()
+    {
+        return $this->belongsTo(Course::class, 'course_id');
+    }
 }
