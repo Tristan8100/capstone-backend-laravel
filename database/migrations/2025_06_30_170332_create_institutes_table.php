@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('image_path'); // stores the relative path
+            $table->string('image_path')->nullable(); // stores the relative path
             $table->timestamps();
         });
     }
