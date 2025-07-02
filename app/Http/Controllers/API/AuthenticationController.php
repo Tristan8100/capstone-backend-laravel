@@ -135,6 +135,15 @@ class AuthenticationController extends Controller
             }
 
             $user = Auth::user();
+            if (!$user->email_verified_at) {
+                return response()->json([
+                    'response_code' => 401,
+                    'status'        => 'error',
+                    'message'       => 'Email not verified',
+                ], 401);
+            }
+
+            $user = Auth::user();
             $user->tokens()->delete();
             $token = $user->createToken('authToken')->plainTextToken;
 
