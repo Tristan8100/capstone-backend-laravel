@@ -63,17 +63,33 @@ class InstituteController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|file|image|max:2048',
         ]);
 
         if ($request->hasFile('image')) {
-            $filename = $institute->id . '.' . $request->image->extension();
-            $path = $request->image->storeAs('institute_images', $filename, 'public');
-            $validated['image_path'] = 'storage/' . $path;
+            // Delete old image if exists
+            if ($institute->image_path && file_exists(public_path($institute->image_path))) {
+                unlink(public_path($institute->image_path));
+            }
+
+            $filename = $institute->id . '_' . time() . '.' . $request->file('image')->extension();
+            $destinationPath = public_path('institute_images');
+
+            // Ensure the directory exists
+            if (!file_exists($destinationPath)) {
+                mkdir($destinationPath, 0755, true);
+            }
+
+            $request->file('image')->move($destinationPath, $filename);
+            $validated['image_path'] = 'institute_images/' . $filename;
         }
 
         $institute->update($validated);
-        return $institute;
+
+        return response()->json([
+            'message' => 'Institute updated successfully',
+            'institute' => $institute,
+        ]);
     }
 
     public function destroy($id)
