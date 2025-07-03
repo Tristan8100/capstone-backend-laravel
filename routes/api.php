@@ -7,3 +7,5 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/alumnilist.php';
 require __DIR__ . '/announcement.php';
 require __DIR__ . '/institute_course.php';
+require __DIR__ . '/post.php';
+require __DIR__ . '/survey.php';
