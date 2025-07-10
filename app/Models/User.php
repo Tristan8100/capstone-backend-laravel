@@ -81,4 +81,11 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Course::class, 'course_id');
     }
+
+    //SURVEY MODULE
+    public function responses()
+    {
+        return $this->hasMany(Response::class);
+    }
+
 }
