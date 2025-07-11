@@ -34,15 +34,15 @@ class AuthenticationController extends Controller
             ]);
 
             // Find matching alumni record with course_name check
-            $alumniMatch = AlumniList::where('first_name', $validated['first_name'])
-                ->where('last_name', $validated['last_name'])
-                ->where('batch', $validated['batch'])
-                ->where('student_id', $validated['student_id'])
-                ->where('course', $validated['course_name']) // compare course name here
-                ->when($validated['middle_name'], function ($query, $middle) {
-                    return $query->where('middle_name', $middle);
-                })
-                ->first();
+            $alumniMatch = AlumniList::where('first_name', strtoupper($validated['first_name']))
+            ->where('last_name', strtoupper($validated['last_name']))
+            ->where('batch', $validated['batch'])
+            ->where('student_id', $validated['student_id'])
+            ->where('course', strtoupper($validated['course_name']))
+            ->when($validated['middle_name'], function ($query, $middle) {
+                return $query->where('middle_name', strtoupper($middle));
+            })
+            ->first();
 
             if (!$alumniMatch) {
                 return response()->json([
@@ -75,13 +75,13 @@ class AuthenticationController extends Controller
             ]);
 
             // Generate 6-digit OTP
-            $otp = rand(100000, 999999);
+            $otp = (string) rand(100000, 999999);
 
             // Create or update OTP record
             EmailVerification::updateOrCreate(
                 ['email' => $user->email],
                 [
-                    'otp'       => $otp,
+                    'otp_hash'       => Hash::make($otp),
                     'verified'  => false,
                     'created_at'=> now(),
                     'updated_at'=> now(),

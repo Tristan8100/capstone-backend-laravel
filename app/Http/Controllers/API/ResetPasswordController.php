@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Mockery\Generator\StringManipulation\Pass\Pass;
 
 class ResetPasswordController extends Controller
 {
@@ -20,23 +19,25 @@ class ResetPasswordController extends Controller
         ]);
 
         // Generate 6-digit OTP
-        $otp = rand(100000, 999999);
+        $otp = (string) rand(100000, 999999);
+
+        // Hash the OTP
+        $hashedOtp = Hash::make($otp);
 
         // Create or update the OTP record
         PasswordReset::updateOrCreate(
             ['email' => $request->email],
             [
-                'code' => $otp,
+                'code_hash' => $hashedOtp,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
 
-        // Send OTP email (using Laravel mail)
-        $userEmail = $request->email;
-        Mail::raw("Your password reset OTP is: $otp. It expires in 10 minutes.", function ($message) use ($userEmail) {
-            $message->to($userEmail)
-                    ->subject('Email Verification OTP');
+        // Send OTP email
+        Mail::raw("Your password reset OTP is: $otp. It expires in 10 minutes.", function ($message) use ($request) {
+            $message->to($request->email)
+                    ->subject('Password Reset OTP');
         });
 
         return response()->json(['message' => 'OTP sent to your email.', 'email' => $request->email]);
@@ -49,31 +50,28 @@ class ResetPasswordController extends Controller
             'otp' => 'required|numeric|digits:6',
         ]);
 
-        $email = $request->email;
-        $otp = $request->otp;
+        $record = PasswordReset::where('email', $request->email)->first();
 
-        // Fetch OTP record
-        $record = PasswordReset::where('email', $email)->first();
-
-        if (!$record || trim((string)$record->code) !== trim((string)$otp)) {
-            return response()->json(['message' => 'Invalid OTP or email... ' . $record->code . ' not equal to ' . $otp . ' ' . $record->email . ' not equal to ' . $email], 400);
+        if (!$record || !Hash::check($request->otp, $record->code_hash)) {
+            return response()->json(['message' => 'Invalid OTP or email.'], 400);
         }
 
-        // Check if the OTP is expired (10 minutes)
+        // Check if OTP expired (10 mins)
         if ($record->updated_at->diffInMinutes(now()) > 10) {
             return response()->json(['message' => 'OTP has expired.'], 400);
         }
 
         $token = Str::random(60);
-        $hash = bcrypt($token);
-        PasswordReset::updateOrCreate(
-            ['email' => $request->email],
-            [
-                'token' => $hash,
-            ]
-        );
+        $hashedToken = Hash::make($token);
 
-        return response()->json(['message' => 'OTP verified successfully.', 'token' => $token]);
+        $record->update([
+            'token' => $hashedToken,
+        ]);
+
+        return response()->json([
+            'message' => 'OTP verified successfully.',
+            'token' => $token, // Plain token sent to frontend
+        ]);
     }
 
     public function resetPassword(Request $request)
@@ -84,21 +82,17 @@ class ResetPasswordController extends Controller
             'email' => 'required|email|exists:password_resets,email',
         ]);
 
-    
-        $value = PasswordReset::where('email', $request->email )->firstOrFail();
-        
-        if (!$value) {
-            return response()->json(['message' => 'Invalid email.'], 400);
-        }
+        $record = PasswordReset::where('email', $request->email)->first();
 
-        if (!Hash::check($request->token, $value->token)) {
+        if (!$record || !Hash::check($request->token, $record->token)) {
             return response()->json(['message' => 'Invalid token.'], 400);
         }
 
-        User::where('email', $value->email)->update([
-            'password' => bcrypt($request->password),
+        User::where('email', $request->email)->update([
+            'password' => Hash::make($request->password),
         ]);
 
         return response()->json(['message' => 'Password reset successfully.']);
     }
 }
+

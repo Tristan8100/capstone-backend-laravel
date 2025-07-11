@@ -24,16 +24,16 @@ class AlumniImport implements ToCollection
             ]);
 
             if ($validator->fails()) {
-                // Optionally log or collect errors
+                // handle validator fails
                 continue;
             }
 
             AlumniList::create([
-                'student_id'  => $row[0],
-                'first_name'  => $row[1],
-                'middle_name' => $row[2],
-                'last_name'   => $row[3],
-                'course'      => $row[4],
+                'student_id'  => strtoupper($row[0]),
+                'first_name'  => strtoupper($row[1]),
+                'middle_name' => strtoupper($row[2]),
+                'last_name'   => strtoupper($row[3]),
+                'course'      => strtoupper($row[4]),
                 'batch'       => $row[5],
             ]);
         }

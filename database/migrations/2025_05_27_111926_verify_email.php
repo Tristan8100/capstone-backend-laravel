@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('email')->unique();  // email to verify
-            $table->string('otp');               // OTP code
+            $table->string('otp_hash');               // OTP code
             $table->boolean('verified')->default(false);  // verified status
 
             $table->timestamps();

@@ -7,6 +7,7 @@ use App\Models\EmailVerification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
 class VerifyEmailController extends Controller
@@ -21,20 +22,23 @@ class VerifyEmailController extends Controller
         $email = $request->email;
 
         // Generate 6-digit OTP
-        $otp = rand(100000, 999999);
+        $otp = (string) rand(100000, 999999);
+
+        // Hash the OTP before saving
+        $hashedOtp = Hash::make($otp);
 
         // Create or update the OTP record
         EmailVerification::updateOrCreate(
             ['email' => $email],
             [
-                'otp' => $otp,
+                'otp_hash' => $hashedOtp,
                 'verified' => false,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
 
-        // Send OTP email (using Laravel mail)
+        // Send OTP email (plain OTP)
         Mail::raw("Your verification OTP is: $otp. It expires in 10 minutes.", function ($message) use ($email) {
             $message->to($email)
                     ->subject('Email Verification OTP');
@@ -61,26 +65,25 @@ class VerifyEmailController extends Controller
             return response()->json(['message' => 'No OTP found for this email.'], 404);
         }
 
-        // Check if already verified
         if ($record->verified) {
             return response()->json(['message' => 'Email already verified.'], 400);
         }
 
-        // Check OTP match
-        if ($record->otp !== $otp) {
+        // Check OTP match using hash
+        if (!Hash::check($otp, $record->otp_hash)) {
             return response()->json(['message' => 'Invalid OTP.'], 400);
         }
 
         // Check expiration (10 minutes)
-        $expiresAt = $record->updated_at->addMinutes(10);
-        if (Carbon::now()->greaterThan($expiresAt)) {
+        if ($record->updated_at->diffInMinutes(now()) > 10) {
             return response()->json(['message' => 'OTP expired. Please request a new one.'], 400);
         }
 
         // Mark verified
         $record->verified = true;
         $record->save();
-        
+
+        // Update user email_verified_at
         User::where('email', $email)->update(['email_verified_at' => now()]);
 
         return response()->json(['message' => 'Email verified successfully!']);

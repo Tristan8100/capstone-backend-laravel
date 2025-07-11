@@ -8,7 +8,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/institutes', [InstituteController::class, 'index']);
     Route::post('/institutes', [InstituteController::class, 'store']);
     Route::get('/institutes/{id}', [InstituteController::class, 'show']);
-    Route::put('/institutes/{id}', [InstituteController::class, 'update']);
+    Route::put('/institutes/{id}', [InstituteController::class, 'update']); //need to put _method: 'PUT' in the request body
     Route::delete('/institutes/{id}', [InstituteController::class, 'destroy']);
 
     // Course routes

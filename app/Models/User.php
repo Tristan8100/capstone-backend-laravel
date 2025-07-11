@@ -29,6 +29,7 @@ class User extends Authenticatable
         'email',
         'password',
         'course_id',
+        'qr_code_path',
     ];
 
     /**

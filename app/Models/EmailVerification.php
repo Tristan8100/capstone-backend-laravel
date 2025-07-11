@@ -8,6 +8,6 @@ class EmailVerification extends Model
 {
     protected $table = 'email_verifications';
 
-    protected $fillable = ['email', 'otp', 'verified'];
+    protected $fillable = ['email', 'otp_hash', 'verified'];
     public $timestamps = true;
 }
