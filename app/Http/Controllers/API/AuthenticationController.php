@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Models\EmailVerification;
 use Illuminate\Support\Str;
 use App\Models\Course;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Support\Facades\File;
 class AuthenticationController extends Controller
 {
     /**
@@ -73,6 +75,24 @@ class AuthenticationController extends Controller
                 'password'    => Hash::make($validated['password']),
                 'course_id'   => $course->id, // save FK here
             ]);
+
+            // Generate QR code URL
+            $frontendUrl = env('FRONTEND_URL'); // don't forget on env ah
+            $qrUrl = $frontendUrl . '/' . $user->id;
+
+            // Build file path
+            $folder = public_path('qrcodes');
+            File::ensureDirectoryExists($folder); // ensure folder exists
+
+            $filename = $user->id . '.svg';
+            $filepath = $folder . '/' . $filename;//can be changed
+
+            // Generate and save the QR code
+            QrCode::format('svg')->size(300)->generate($qrUrl, $filepath);
+
+            // Save the relative path to the user
+            $user->qr_code_path = 'qrcodes/' . $filename;
+            $user->save();
 
             // Generate 6-digit OTP
             $otp = (string) rand(100000, 999999);
