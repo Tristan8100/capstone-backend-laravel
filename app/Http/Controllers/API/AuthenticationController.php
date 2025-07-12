@@ -173,6 +173,13 @@ class AuthenticationController extends Controller
                 'message'       => 'Login successful',
                 'token'       => $token,
                 'token_type'  => 'Bearer',
+                'user_info'   => [
+                    'id'    => $user->id,
+                    'name'  => $user->first_name . ' ' . $user->last_name,
+                    'email' => $user->email,
+                    'course' => $user->course ? $user->course->name : null,
+                    'qr_code_path' => $user->qr_code_path, // include QR code path
+                ],
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -247,6 +254,40 @@ class AuthenticationController extends Controller
                 'response_code' => 500,
                 'status'        => 'error',
                 'message'       => 'An error occurred during logout',
+            ], 500);
+        }
+    }
+
+    public function verifyToken()
+    {
+        try {
+            if (Auth::check()) {
+
+                return response()->json([
+                    'response_code' => 200,
+                    'status'        => 'success',
+                    'user_info'   => [
+                        'id'    => Auth::user()->id,
+                        'name'  => Auth::user()->first_name . ' ' . Auth::user()->last_name,
+                        'email' => Auth::user()->email,
+                        'course' => Auth::user()->course ? Auth::user()->course->name : null,
+                        'qr_code_path' => Auth::user()->qr_code_path, // include QR code path
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'response_code' => 401,
+                'status'        => 'error',
+                'message'       => 'User not authenticated',
+            ], 401);
+        } catch (\Exception $e) {
+            Log::error('Verify Error: ' . $e->getMessage());
+
+            return response()->json([
+                'response_code' => 500,
+                'status'        => 'error',
+                'message'       => 'An error occurred during Verifying token',
             ], 500);
         }
     }
