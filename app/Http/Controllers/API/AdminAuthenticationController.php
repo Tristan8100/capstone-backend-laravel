@@ -13,32 +13,37 @@ use App\Models\Admin;
 class AdminAuthenticationController extends Controller
 {
     public function login(Request $request)
-{
-    $credentials = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string',
-    ]);
+    {
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
 
-    $admin = Admin::where('email', $credentials['email'])->first();
+        $admin = Admin::where('email', $credentials['email'])->first();
 
-    if (!$admin || !Hash::check($credentials['password'], $admin->password)) {
+        if (!$admin || !Hash::check($credentials['password'], $admin->password)) {
+            return response()->json([
+                'response_code' => 401,
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        // Delete old tokens & create new token
+        $admin->tokens()->delete();
+        $token = $admin->createToken('admin-auth-token')->plainTextToken;
+
         return response()->json([
-            'response_code' => 401,
-            'status' => 'error',
-            'message' => 'Unauthorized',
-        ], 401);
+            'response_code' => 200,
+            'status' => 'success',
+            'message' => 'Login successful',
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user_info' => [
+                'id' => $admin->id,
+                'name' => $admin->name,
+                'email' => $admin->email,
+            ]
+        ]);
     }
-
-    // Delete old tokens & create new token
-    $admin->tokens()->delete();
-    $token = $admin->createToken('admin-auth-token')->plainTextToken;
-
-    return response()->json([
-        'response_code' => 200,
-        'status' => 'success',
-        'message' => 'Login successful',
-        'token' => $token,
-        'token_type' => 'Bearer',
-    ]);
-}
 }

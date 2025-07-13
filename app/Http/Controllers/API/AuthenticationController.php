@@ -41,9 +41,6 @@ class AuthenticationController extends Controller
             ->where('batch', $validated['batch'])
             ->where('student_id', $validated['student_id'])
             ->where('course', strtoupper($validated['course_name']))
-            ->when($validated['middle_name'], function ($query, $middle) {
-                return $query->where('middle_name', strtoupper($middle));
-            })
             ->first();
 
             if (!$alumniMatch) {
@@ -68,9 +65,9 @@ class AuthenticationController extends Controller
             // Create user with course_id foreign key
             $user = User::create([
                 'id'          => $alumniMatch->student_id, // keep your ID logic
-                'first_name'  => $validated['first_name'],
-                'middle_name' => $validated['middle_name'] ?? null,
-                'last_name'   => $validated['last_name'],
+                'first_name'  => $alumniMatch->first_name,
+                'middle_name' => $alumniMatch->middle_name ?? null,
+                'last_name'   => $alumniMatch->last_name,
                 'email'       => $validated['email'],
                 'password'    => Hash::make($validated['password']),
                 'course_id'   => $course->id, // save FK here
@@ -132,6 +129,47 @@ class AuthenticationController extends Controller
                 'message'       => 'Registration failed',
             ], 500);
         }
+    }
+
+    public function findprofile(Request $request)
+    {
+        $validated = $request->validate([
+            'student_id'  => 'required|integer',
+            'first_name'  => 'required|string|min:2',
+            'middle_name' => 'nullable|string|min:1',
+            'last_name'   => 'required|string|min:2',
+            'batch'       => 'required|integer|digits:4',
+            'course_name' => 'required|string|exists:courses,name',
+        ]);
+
+        $alumniMatch = AlumniList::where('first_name', strtoupper($validated['first_name']))
+            ->where('last_name', strtoupper($validated['last_name']))
+            ->where('batch', $validated['batch'])
+            ->where('student_id', $validated['student_id'])
+            ->where('course', strtoupper($validated['course_name']))
+            ->first();
+
+        if (!$alumniMatch) {
+            return response()->json([
+                'response_code' => 403,
+                'status'        => 'error',
+                'message'       => 'You are not listed as an alumni or course does not match. Registration is restricted.',
+            ], 403);
+        }
+
+        return response()->json([
+            'response_code' => 200,
+            'status'        => 'success',
+            'message'       => 'Profile found',
+            'data'          => [
+                'student_id'  => $alumniMatch->student_id,
+                'first_name'  => $alumniMatch->first_name,
+                'middle_name' => $alumniMatch->middle_name,
+                'last_name'   => $alumniMatch->last_name,
+                'batch'       => $alumniMatch->batch,
+                'course'      => $alumniMatch->course,
+            ],
+        ]);
     }
 
 
@@ -268,7 +306,7 @@ class AuthenticationController extends Controller
                     'status'        => 'success',
                     'user_info'   => [
                         'id'    => Auth::user()->id,
-                        'name'  => Auth::user()->first_name . ' ' . Auth::user()->last_name,
+                        'name'  => Auth::user()->full_name, //from getFullNameAttribute() both models, idk it's weird
                         'email' => Auth::user()->email,
                         'course' => Auth::user()->course ? Auth::user()->course->name : null,
                         'qr_code_path' => Auth::user()->qr_code_path, // include QR code path

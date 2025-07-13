@@ -20,6 +20,11 @@ class Admin extends Authenticatable
         'password', 'remember_token',
     ];
 
+    public function getFullNameAttribute()
+    {
+        return $this->name;
+    }
+
     public function announcements()
     {
         return $this->hasMany(Announcement::class);

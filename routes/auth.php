@@ -12,6 +12,7 @@ Route::middleware('auth:user-api')->group(function () {
     Route::post('logout', [AuthenticationController::class, 'logOut'])->name('logout');
     Route::get('verify-user', [AuthenticationController::class, 'verifyToken'])->name('verify-user');
 });
+Route::post('find-profile', [AuthenticationController::class, 'findprofile'])->name('find-profile');
 
 Route::post('register', [AuthenticationController::class, 'register'])->name('register');
 
@@ -43,4 +44,5 @@ Route::post('/admin-login', [AdminAuthenticationController::class, 'login']);
 
 Route::middleware('auth:admin-api')->group(function () {
     Route::post('admin-logout', [AuthenticationController::class, 'logOut'])->name('logout');
+    Route::get('verify-admin', [AuthenticationController::class, 'verifyToken'])->name('verify-user');
 });
