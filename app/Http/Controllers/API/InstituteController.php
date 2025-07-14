@@ -8,11 +8,26 @@ use App\Models\Institute;
 use Illuminate\Support\Str;
 class InstituteController extends Controller
 {
-    public function index()
-    {
-        return Institute::all();
-    }
 
+    
+
+public function index(Request $request)
+{
+    $query = Institute::query();
+    
+    // Simple search
+    if ($request->has('search')) {
+        $search = $request->search;
+        $query->where('name', 'LIKE', "%{$search}%")
+              ->orWhere('description', 'LIKE', "%{$search}%");
+    }
+    
+    // Pagination (15 items per page)
+    $institutes = $query->paginate(15);
+    
+    // Make sure to return JSON response
+    return response()->json($institutes);
+}
     public function store(Request $request)
     {
        $validated = $request->validate([
