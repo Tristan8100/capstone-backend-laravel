@@ -18,5 +18,6 @@ class AlumniList extends Model
         'last_name',
         'course',
         'batch',
+        'status',
     ];
 }

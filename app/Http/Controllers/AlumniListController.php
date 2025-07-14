@@ -7,12 +7,38 @@ use App\Models\AlumniList as Alumni;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\AlumniImport;
+use Illuminate\Support\Facades\DB;
+
 class AlumniListController extends Controller
 {
-    // Get all alumni
-    public function index()
+    // Get paginated alumni with search
+    public function index(Request $request)
     {
-        return response()->json(Alumni::all());
+        $query = Alumni::query();
+
+        // Search functionality
+        if ($request->has('search') && !empty($request->search)) {
+            $searchTerm = $request->search;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('first_name', 'like', '%'.$searchTerm.'%')
+                  ->orWhere('last_name', 'like', '%'.$searchTerm.'%')
+                  ->orWhere('student_id', 'like', '%'.$searchTerm.'%');
+            });
+        }
+
+        // Pagination
+        $perPage = $request->per_page ?? 5; // Default to 5 items per page
+        $alumni = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $alumni->items(),
+            'meta' => [
+                'current_page' => $alumni->currentPage(),
+                'last_page' => $alumni->lastPage(),
+                'per_page' => $alumni->perPage(),
+                'total' => $alumni->total(),
+            ]
+        ]);
     }
 
     // Get one alumni by ID
@@ -37,6 +63,7 @@ class AlumniListController extends Controller
             'last_name'    => 'required|string',
             'course'       => 'required|string',
             'batch'        => 'required|integer|digits:4',
+            'status'       => 'nullable|string|in:active,inactive',
         ]);
 
         if ($validator->fails()) {
@@ -64,6 +91,7 @@ class AlumniListController extends Controller
             'last_name'    => 'sometimes|required|string',
             'course'       => 'sometimes|required|string',
             'batch'        => 'sometimes|required|integer|digits:4',
+            'status'       => 'sometimes|string|in:active,inactive',
         ]);
 
         if ($validator->fails()) {
