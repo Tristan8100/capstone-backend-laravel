@@ -30,7 +30,12 @@ class CourseController extends Controller
         $courses = $query->paginate($perPage);
 
         return response()->json($courses);
-}
+    }
+
+    public function index2()
+    {
+        return Course::with('institute')->get();
+    }
 
 
     public function store(Request $request)

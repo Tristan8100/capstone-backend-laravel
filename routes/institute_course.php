@@ -19,4 +19,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/courses-general/{id}', [CourseController::class, 'destroy']);
 });
 
-Route::get('/get-courses-general', [CourseController::class, 'index']);
+Route::get('/get-courses-general', [CourseController::class, 'index2']);
