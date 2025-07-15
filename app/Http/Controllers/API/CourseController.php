@@ -8,10 +8,30 @@ use App\Models\Course;
 use Illuminate\Support\Str;
 class CourseController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return Course::with('institute')->get();
-    }
+        $search = $request->query('search');
+        $instituteId = $request->query('institute_id');
+        $perPage = $request->query('per_page', 10);
+
+        $query = Course::with('institute');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', '%' . $search . '%')
+                ->orWhere('full_name', 'LIKE', '%' . $search . '%');
+            });
+        }
+
+        if ($instituteId) {
+            $query->where('institute_id', $instituteId);
+        }
+
+        $courses = $query->paginate($perPage);
+
+        return response()->json($courses);
+}
+
 
     public function store(Request $request)
     {
@@ -42,7 +62,7 @@ class CourseController extends Controller
         $course = Course::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:50|unique:courses,name',
+            'name' => 'sometimes|required|string|max:50',
             'full_name' => 'sometimes|required|string|max:255',
             'institute_id' => 'sometimes|required|exists:institutes,id',
         ]);

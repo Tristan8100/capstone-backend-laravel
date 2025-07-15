@@ -8,26 +8,36 @@ use App\Models\Institute;
 use Illuminate\Support\Str;
 class InstituteController extends Controller
 {
+    public function index(Request $request)
+    {
+        $query = Institute::query()
+            ->withCount('courses')
+            ->orderBy('created_at', 'desc');
 
-    
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
 
-public function index(Request $request)
-{
-    $query = Institute::query();
-    
-    // Simple search
-    if ($request->has('search')) {
-        $search = $request->search;
-        $query->where('name', 'LIKE', "%{$search}%")
-              ->orWhere('description', 'LIKE', "%{$search}%");
+        // Pagination (default 15 per page, max 100)
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $institutes = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $institutes->items(),
+            'meta' => [
+                'current_page' => $institutes->currentPage(),
+                'last_page' => $institutes->lastPage(),
+                'per_page' => $institutes->perPage(),
+                'total' => $institutes->total(),
+            ],
+        ]);
     }
-    
-    // Pagination (15 items per page)
-    $institutes = $query->paginate(15);
-    
-    // Make sure to return JSON response
-    return response()->json($institutes);
-}
+
     public function store(Request $request)
     {
        $validated = $request->validate([
