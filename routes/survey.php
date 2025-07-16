@@ -13,6 +13,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/surveys/{id}', [SurveyController::class, 'update']);
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
+    // Last resort
+    Route::post('/surveys/store-or-update', [SurveyController::class, 'storeOrUpdate']);
+    Route::put('/surveys/store-or-update/{id}', [SurveyController::class, 'storeOrUpdate']);
+
+
     // Questions
     Route::post('/questions', [QuestionController::class, 'store']);
     Route::put('/questions/{id}', [QuestionController::class, 'update']);
