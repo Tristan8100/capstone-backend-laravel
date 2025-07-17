@@ -34,4 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/responses', [ResponseController::class, 'store']);
     Route::delete('/responses/{id}', [ResponseController::class, 'destroy']);
 
+    // Last resort
+    Route::get('/responses/survey/{id}', [ResponseController::class, 'showBasedSurvey']);
+
 });

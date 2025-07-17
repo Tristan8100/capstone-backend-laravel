@@ -24,6 +24,14 @@ class ResponseController extends Controller
             ->findOrFail($id);
     }
 
+    public function showBasedSurvey($id)
+    {
+        return Response::with('answers.answerChoices')
+            ->where('user_id', Auth::id())
+            ->where('survey_id', $id)
+            ->get();
+    }
+
     // Submit a survey response or Update (all in, will iterate all)
     public function store(Request $request)
     {
