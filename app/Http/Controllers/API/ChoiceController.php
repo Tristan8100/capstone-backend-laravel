@@ -30,4 +30,11 @@ class ChoiceController extends Controller
         Choice::findOrFail($id)->delete();
         return response()->json(['message' => 'Choice deleted.']);
     }
+
+    public function destroyByQuestion($questionId) //to prevent n+1 query on frontend stuff
+{
+    Choice::where('question_id', $questionId)->delete();
+    return response()->json(['message' => 'All choices deleted for this question.']);
+}
+
 }

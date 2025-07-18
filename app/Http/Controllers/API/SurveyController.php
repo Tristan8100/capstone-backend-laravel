@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Survey;
+use App\Models\AnswerChoice;
 use Illuminate\Support\Facades\DB;
 class SurveyController extends Controller
 {
@@ -102,6 +103,39 @@ class SurveyController extends Controller
         return response()->json($survey);
     }
 
+    public function showResults($id)
+    {
+        $survey = Survey::with(['questions.choices'])->findOrFail($id);
 
+        $results = $survey->questions->map(function ($question) {
+            $data = [
+                'id' => $question->id,
+                'question_text' => $question->question_text,
+                'question_type' => $question->question_type,
+            ];
+
+            if ($question->question_type === 'text') {
+                $data['responses'] = 'text';
+            } else {
+                $data['choices'] = $question->choices->map(function ($choice) {
+                    $responseCount = AnswerChoice::where('choice_id', $choice->id)->count();
+
+                    return [
+                        'id' => $choice->id,
+                        'text' => $choice->choice_text,
+                        'response_count' => $responseCount,
+                    ];
+                });
+            }
+
+            return $data;
+        });
+
+        return response()->json([
+            'survey_id' => $survey->id,
+            'title' => $survey->title,
+            'results' => $results,
+        ]);
+    }
 
 }

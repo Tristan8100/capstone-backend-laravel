@@ -13,6 +13,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/surveys/{id}', [SurveyController::class, 'update']);
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
+    Route::get('/surveys/results/{id}', [SurveyController::class, 'showResults']);
+
     // Last resort
     Route::post('/surveys/store-or-update', [SurveyController::class, 'storeOrUpdate']);
     Route::put('/surveys/store-or-update/{id}', [SurveyController::class, 'storeOrUpdate']);
@@ -27,6 +29,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/choices', [ChoiceController::class, 'store']);
     Route::put('/choices/{id}', [ChoiceController::class, 'update']);
     Route::delete('/choices/{id}', [ChoiceController::class, 'destroy']);
+
+    Route::delete('/choices/by-question/{id}', [ChoiceController::class, 'destroyByQuestion']);
 
     // Responses
     Route::get('/responses', [ResponseController::class, 'index']);
