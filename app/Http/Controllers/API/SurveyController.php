@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Survey;
 use App\Models\AnswerChoice;
+use App\Models\Answer;
+use App\Models\Response;
+
 use Illuminate\Support\Facades\DB;
 class SurveyController extends Controller
 {
@@ -103,39 +106,68 @@ class SurveyController extends Controller
         return response()->json($survey);
     }
 
-    public function showResults($id)
+    public function showResults($surveyId)
     {
-        $survey = Survey::with(['questions.choices'])->findOrFail($id);
+        $survey = Survey::with('questions.choices')->findOrFail($surveyId);
 
-        $results = $survey->questions->map(function ($question) {
-            $data = [
+        $results = $survey->questions->map(function ($question) use ($surveyId) {
+            if ($question->question_type === 'text') {
+                $textResponseCount = Answer::where('question_id', $question->id)
+                    ->whereNotNull('answer_text')
+                    ->where('answer_text', '!=', '')
+                    ->count();
+
+                return [
+                    'id' => $question->id,
+                    'question_text' => $question->question_text,
+                    'question_type' => $question->question_type,
+                    'response_count' => $textResponseCount,
+                ];
+            }
+
+            $choicesWithCount = $question->choices->map(function ($choice) use ($surveyId) {
+                $responseCount = AnswerChoice::where('choice_id', $choice->id)
+                    ->whereHas('answer.response', function ($query) use ($surveyId) {
+                        $query->where('survey_id', $surveyId);
+                    })
+                    ->count();
+
+                return [
+                    'id' => $choice->id,
+                    'text' => $choice->choice_text,
+                    'response_count' => $responseCount,
+                ];
+            });
+
+            return [
                 'id' => $question->id,
                 'question_text' => $question->question_text,
                 'question_type' => $question->question_type,
+                'choices' => $choicesWithCount,
             ];
-
-            if ($question->question_type === 'text') {
-                $data['responses'] = 'text';
-            } else {
-                $data['choices'] = $question->choices->map(function ($choice) {
-                    $responseCount = AnswerChoice::where('choice_id', $choice->id)->count();
-
-                    return [
-                        'id' => $choice->id,
-                        'text' => $choice->choice_text,
-                        'response_count' => $responseCount,
-                    ];
-                });
-            }
-
-            return $data;
         });
 
         return response()->json([
             'survey_id' => $survey->id,
             'title' => $survey->title,
+            'description' => $survey->description ?? '',
             'results' => $results,
         ]);
     }
+
+    public function getTextResponses($questionId)
+{
+    $answers = Answer::where('question_id', $questionId)
+        ->whereNotNull('answer_text')
+        ->pluck('answer_text');
+
+    return response()->json([
+        'question_id' => $questionId,
+        'responses' => $answers
+    ]);
+}
+
+
+
 
 }

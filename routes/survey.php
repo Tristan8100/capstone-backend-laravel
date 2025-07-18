@@ -14,6 +14,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
     Route::get('/surveys/results/{id}', [SurveyController::class, 'showResults']);
+    Route::get('/surveys/results/text-responses/{id}', [SurveyController::class, 'getTextResponses']);
 
     // Last resort
     Route::post('/surveys/store-or-update', [SurveyController::class, 'storeOrUpdate']);
