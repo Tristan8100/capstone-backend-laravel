@@ -30,6 +30,7 @@ class User extends Authenticatable
         'password',
         'course_id',
         'qr_code_path',
+        'profile_path',
     ];
 
     /**

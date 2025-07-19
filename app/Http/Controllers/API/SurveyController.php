@@ -67,9 +67,6 @@ class SurveyController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                // Delete old questions and their choices
-                // If your migrations have onDelete('cascade') on question_id in choices table,
-                // and survey_id in questions table, then deleting questions will cascade to choices.
                 $survey->questions()->delete();
 
             } else {
@@ -97,10 +94,6 @@ class SurveyController extends Controller
             }
         });
 
-        // Load nested relations for complete response after the transaction commits
-        // The $survey variable needs to be passed by reference to be accessible outside the closure
-        // or re-fetched after the transaction. Re-fetching is safer if the transaction
-        // might modify the $survey object in ways not immediately reflected.
         $survey = Survey::with('questions.choices')->findOrFail($survey->id);
 
         return response()->json($survey);
@@ -155,17 +148,20 @@ class SurveyController extends Controller
         ]);
     }
 
-    public function getTextResponses($questionId)
-{
-    $answers = Answer::where('question_id', $questionId)
-        ->whereNotNull('answer_text')
-        ->pluck('answer_text');
+    public function getTextResponses(Request $request, $questionId)
+    {
+        $limit = $request->input('limit', 20);
+        $responses = Answer::where('question_id', $questionId)
+                        ->whereNotNull('answer_text')
+                        ->paginate($limit);
 
-    return response()->json([
-        'question_id' => $questionId,
-        'responses' => $answers
-    ]);
-}
+        return response()->json([
+            'question_id' => $questionId,
+            'responses' => $responses->items(),
+            'totalPages' => $responses->lastPage(),
+        ]);
+    }
+
 
 
 
