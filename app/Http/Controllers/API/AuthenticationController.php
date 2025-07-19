@@ -217,6 +217,7 @@ class AuthenticationController extends Controller
                     'email' => $user->email,
                     'course' => $user->course ? $user->course->name : null,
                     'qr_code_path' => $user->qr_code_path, // include QR code path
+                    'profile_path' => $user->profile_path,
                 ],
             ]);
         } catch (ValidationException $e) {
@@ -310,6 +311,7 @@ class AuthenticationController extends Controller
                         'email' => Auth::user()->email,
                         'course' => Auth::user()->course ? Auth::user()->course->name : null,
                         'qr_code_path' => Auth::user()->qr_code_path, // include QR code path
+                        'profile_path' => Auth::user()->profile_path,
                     ],
                 ]);
             }

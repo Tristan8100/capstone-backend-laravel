@@ -10,6 +10,7 @@ require __DIR__ . '/institute_course.php';
 require __DIR__ . '/post.php';
 require __DIR__ . '/survey.php';
 require __DIR__ . '/accounts.php';
+require __DIR__ . '/profile.php';
 
 // FOR TESTING ONLY
 Route::get('/qr-test', function () {
