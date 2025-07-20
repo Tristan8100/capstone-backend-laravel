@@ -18,7 +18,7 @@ class CommentController extends Controller
 
         $comment = Comment::create([
             'announcement_id' => $request->announcement_id,
-            'user_id' => Auth::id(), // Assumes user is logged in
+            'user_id' => Auth::user()->id, // Assumes user is logged in
             'parent_id' => $request->parent_id,
             'content' => $request->content,
         ]);
