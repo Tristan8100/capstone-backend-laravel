@@ -4,14 +4,34 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use APP\Models\Post;
+use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
+use App\Models\PostImage;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+use Illuminate\Support\Facades\File;
+
 
 class PostController extends Controller
 {
     public function index()
     {
-        return Post::with('user', 'comments')->latest()->get();
+        return Post::with('images', 'user',
+        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
+        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
+        )->latest()->get();
+    }
+
+    public function indexStatus($status)
+    {
+        if (!in_array($status, ['pending', 'accepted', 'declined'])) {
+            return response()->json(['error' => 'Invalid status'], 400);
+        }
+
+        return Post::with('images', 'user',
+        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
+        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
+        )->where('status', $status)->latest()->get();
     }
 
     public function store(Request $request)
@@ -19,14 +39,48 @@ class PostController extends Controller
         $request->validate([
             'title'   => 'required|string|max:255',
             'content' => 'required|string',
+            'images'  => 'nullable|array',
+            'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        return Post::create([
+        $post = Post::create([
             'user_id' => Auth::id(),
             'title'   => $request->title,
             'content' => $request->content,
             'status'  => 'pending',
         ]);
+
+        if ($request->hasFile('images')) {
+            $directory = public_path('post_images');
+            if (!File::exists($directory)) {
+                File::makeDirectory($directory, 0755, true);
+            }
+
+            $manager = new ImageManager(new Driver());
+            foreach ($request->file('images') as $imageFile) {
+                if (!$imageFile->isValid()) continue;
+
+                $filename = time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
+                $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
+                $relativePath = 'post_images/' . $filename;
+
+                $imageFile->move($directory, $filename);
+
+                $image = $manager->read($fullPath);
+                $image->resize(800, 800, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                })->save($fullPath, 80);
+
+                PostImage::create([
+                    'post_id'    => $post->id,
+                    'image_name' => $filename,
+                    'image_file' => $relativePath,
+                ]);
+            }
+        }
+
+        return response()->json(['message' => 'Post created with images.'], 201);
     }
 
     public function show($id)
@@ -41,12 +95,44 @@ class PostController extends Controller
         $request->validate([
             'title'   => 'sometimes|string|max:255',
             'content' => 'sometimes|string',
+            'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         $post->update($request->only('title', 'content'));
 
-        return $post;
+        if ($request->hasFile('images')) {
+            $directory = public_path('post_images');
+            if (!File::exists($directory)) {
+                File::makeDirectory($directory, 0755, true);
+            }
+
+            $manager = new ImageManager(new Driver());
+            foreach ($request->file('images') as $imageFile) {
+                if (!$imageFile->isValid()) continue;
+
+                $filename = time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
+                $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
+                $relativePath = 'post_images/' . $filename;
+
+                $imageFile->move($directory, $filename);
+
+                $image = $manager->read($fullPath);
+                $image->resize(800, 800, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                })->save($fullPath, 80);
+
+                PostImage::create([
+                    'post_id'    => $post->id,
+                    'image_name' => $filename,
+                    'image_file' => $relativePath,
+                ]);
+            }
+        }
+
+        return response()->json(['message' => 'Post updated.']);
     }
+
 
     public function destroy($id)
     {

@@ -184,15 +184,16 @@ class AuthenticationController extends Controller
                 'password' => 'required|string',
             ]);
 
-            if (!Auth::attempt($credentials)) {
+            $user = User::where('email', $credentials['email'])->first();
+
+            if (!$user || !Hash::check($credentials['password'], $user->password)) {
                 return response()->json([
                     'response_code' => 401,
-                    'status'        => 'error',
-                    'message'       => 'Unauthorized',
+                    'status' => 'error',
+                    'message' => 'Unauthorized',
                 ], 401);
             }
 
-            $user = Auth::user();
             if (!$user->email_verified_at) {
                 return response()->json([
                     'response_code' => 401,
@@ -201,7 +202,6 @@ class AuthenticationController extends Controller
                 ], 401);
             }
 
-            $user = Auth::user();
             $user->tokens()->delete();
             $token = $user->createToken('authToken')->plainTextToken;
 

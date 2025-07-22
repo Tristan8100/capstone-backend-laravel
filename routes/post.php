@@ -10,9 +10,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/posts/{id}', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
 
+    //by status
+    Route::get('/posts/status/{status}', [PostController::class, 'indexStatus']);
+
     // Post Comments
-    Route::post('/posts/{post}/comments', [PostCommentController::class, 'store']);
-    Route::get('/posts/{post}/comments', [PostCommentController::class, 'index']);
+    Route::post('/posts/comments', [PostCommentController::class, 'store']);
+    Route::get('/posts/comments/{post}', [PostCommentController::class, 'index']);
 });
 
 Route::middleware('auth:admin-api')->put('/posts/{id}/status', [PostController::class, 'updateStatus']);

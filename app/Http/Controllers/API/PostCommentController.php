@@ -16,14 +16,15 @@ class PostCommentController extends Controller
         return $post->comments()->with('user', 'replies.user')->whereNull('parent_id')->get();
     }
 
-    public function store(Request $request, $postId)
+    public function store(Request $request)
     {
         $request->validate([
+            'post_id'    => 'required|exists:posts,id',
             'content'    => 'required|string',
             'parent_id'  => 'nullable|exists:post_comments,id',
         ]);
 
-        $post = Post::findOrFail($postId);
+        $post = Post::findOrFail($request->post_id);
 
         return PostComment::create([
             'post_id'   => $post->id,
