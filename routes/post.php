@@ -11,11 +11,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
 
     //by status
-    Route::get('/posts/status/{status}', [PostController::class, 'indexStatus']);
+    Route::get('/posts/status/{status}', [PostController::class, 'indexStatus']); //all
+    Route::get('/my-posts/status/{status}', [PostController::class, 'indexStatusMyPost']); //auth user only
 
     // Post Comments
     Route::post('/posts/comments', [PostCommentController::class, 'store']);
     Route::get('/posts/comments/{post}', [PostCommentController::class, 'index']);
 });
 
-Route::middleware('auth:admin-api')->put('/posts/{id}/status', [PostController::class, 'updateStatus']);
+Route::middleware('auth:admin-api')->put('/posts/change-status/{id}', [PostController::class, 'updateStatus']);

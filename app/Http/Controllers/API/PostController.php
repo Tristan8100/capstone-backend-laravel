@@ -34,6 +34,18 @@ class PostController extends Controller
         )->where('status', $status)->latest()->get();
     }
 
+    public function indexStatusMyPost($status)
+    {
+        if (!in_array($status, ['pending', 'accepted', 'declined'])) {
+            return response()->json(['error' => 'Invalid status'], 400);
+        }
+
+        return Post::with('images', 'user',
+        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
+        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
+        )->where('status', $status)->where('user_id', Auth::id())->latest()->get();
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -149,9 +161,6 @@ class PostController extends Controller
     ]);
 
     $post = Post::findOrFail($id);
-
-    // Optionally restrict who can update status here, e.g. only admins or post owner
-    // For example, if admin-only, check Auth::guard('admin-api')->check()
 
     $post->status = $request->status;
     $post->save();
