@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Institute;
 use Illuminate\Support\Str;
+use Cloudinary\Cloudinary;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 class InstituteController extends Controller
 {
     public function index(Request $request)
@@ -40,39 +43,42 @@ class InstituteController extends Controller
 
     public function store(Request $request)
     {
-       $validated = $request->validate([
-        'name' => 'required|string|max:255|unique:institutes,name',
-        'description' => 'nullable|string',
-        'image' => 'nullable|image|max:2048',
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:institutes,name',
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
         $id = Str::uuid();
         $imagePath = null;
 
         if ($request->hasFile('image')) {
-        $filename = $id . '.' . $request->image->extension();
-        $destinationPath = public_path('institute_images');
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($request->file('image')->getRealPath())
+                            ->resize(600, 600, function ($constraint) {
+                                $constraint->aspectRatio();
+                                $constraint->upsize();
+                            })
+                            ->toJpeg();
 
-        // Ensure directory exists
-        if (!file_exists($destinationPath)) {
-            mkdir($destinationPath, 0755, true);
+            $cloudinary = new Cloudinary();
+            $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
+                'folder' => 'institutes',
+                'public_id' => 'institute_' . $id,
+                'overwrite' => true,
+            ]);
+
+            $imagePath = $upload['secure_url'];
         }
 
-        // Move image to public folder
-        $request->image->move($destinationPath, $filename);
+        $institute = Institute::create([
+            'id' => $id,
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'image_path' => $imagePath,
+        ]);
 
-        // Store relative path to DB
-        $imagePath = 'institute_images/' . $filename;
-    }
-
-    $institute = Institute::create([
-        'id' => $id,
-        'name' => $validated['name'],
-        'description' => $validated['description'] ?? null,
-        'image_path' => $imagePath,
-    ]);
-
-    return response()->json($institute, 201);
+        return response()->json($institute, 201);
     }
 
     public function show($id)
@@ -92,27 +98,30 @@ class InstituteController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            // Delete old image if exists
-            if ($institute->image_path && file_exists(public_path($institute->image_path))) {
-                unlink(public_path($institute->image_path));
+            // Delete old image from Cloudinary if stored there
+            if ($institute->image_path && str_starts_with($institute->image_path, 'https://res.cloudinary.com')) {
+                $publicId = pathinfo(parse_url($institute->image_path, PHP_URL_PATH), PATHINFO_FILENAME);
+                (new Cloudinary())->uploadApi()->destroy('institute/' . $publicId);
             }
 
-            $filename = $institute->id . '_' . time() . '.' . $request->file('image')->extension();
-            $destinationPath = public_path('institute_images');
+            // Resize and upload new image to Cloudinary
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($request->file('image')->getRealPath())->cover(500, 500)->toJpeg();
 
-            // Ensure the directory exists
-            if (!file_exists($destinationPath)) {
-                mkdir($destinationPath, 0755, true);
-            }
+            $cloudinary = new Cloudinary();
+            $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
+                'folder' => 'institute',
+                'public_id' => 'institute_' . $institute->id . '_' . time(),
+                'overwrite' => true,
+            ]);
 
-            $request->file('image')->move($destinationPath, $filename);
-            $validated['image_path'] = 'institute_images/' . $filename;
+            $validated['image_path'] = $upload['secure_url'];
         }
 
         $institute->update($validated);
 
         return response()->json([
-            'message' => 'Institute updated successfully',
+            'message' => 'Institute updated successfully.',
             'institute' => $institute,
         ]);
     }
@@ -120,6 +129,12 @@ class InstituteController extends Controller
     public function destroy($id)
     {
         $institute = Institute::findOrFail($id);
+
+        if ($institute->image_path && str_starts_with($institute->image_path, 'https://res.cloudinary.com')) {
+            $publicId = pathinfo(parse_url($institute->image_path, PHP_URL_PATH), PATHINFO_FILENAME);
+            (new Cloudinary())->uploadApi()->destroy('institute/' . $publicId);
+        }
+
         $institute->delete();
 
         return response()->noContent();

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-
+use Cloudinary\Cloudinary;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\ImageManager;
@@ -21,50 +21,37 @@ class ProfileController extends Controller
 
         $user = Auth::user();
 
-        $directory = public_path('profile');
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true);
+        // Delete old photo from Cloudinary if stored
+        if ($user->profile_path && str_starts_with($user->profile_path, 'https://res.cloudinary.com')) {
+            $publicId = pathinfo(parse_url($user->profile_path, PHP_URL_PATH), PATHINFO_FILENAME);
+            (new Cloudinary())->uploadApi()->destroy('profile/' . $publicId);
         }
 
-        // Delete old photo if exists
-        if ($user->profile_path) {
-            $oldPhotoPath = public_path($user->profile_path);
-            if (File::exists($oldPhotoPath)) {
-                File::delete($oldPhotoPath);
-            }
+        $file = $request->file('photo');
+        $manager = new ImageManager(new Driver());
 
-            // Clear old path
-            User::where('id', $user->id)->update(['profile_path' => null]);
-        }
+        // Resize by image manager
+        $image = $manager->read($file->getRealPath())->cover(300, 300)->toJpeg(); //put number remember
 
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $filename = time() . '.' . $file->getClientOriginalExtension();
-            $relativePath = '/profile/' . $filename;
-            $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
+        // Upload resized image directly from memory
+        $cloudinary = new Cloudinary();
+        $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
+            'folder' => 'profile',
+            'public_id' => 'user_' . $user->id . '_' . time(),
+            'overwrite' => true,
+        ]);
 
-            // Move the uploaded file to /public/profile
-            $file->move($directory, $filename);
+        $secureUrl = $upload['secure_url'];
 
-            // Resize with Intervention Image
-            $manager = new ImageManager(new Driver());
-            $image = $manager->read($fullPath);
-            $image->cover(300, 300);
-            $image->save($fullPath);
-
-            // Update DB
-            User::where('id', $user->id)->update(['profile_path' => $relativePath]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Photo uploaded successfully.',
-                'profile_path' => $relativePath,
-            ]);
-        }
+        // Update DB with Cloudinary image URL
+        User::where('id', $user->id)->update([
+            'profile_path' => $secureUrl,
+        ]);
 
         return response()->json([
-            'success' => false,
-            'message' => 'No photo uploaded.',
-        ], 400);
+            'success' => true,
+            'message' => 'Photo uploaded to Cloudinary.',
+            'profile_path' => $secureUrl,
+        ]);
     }
 }

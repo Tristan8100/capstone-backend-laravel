@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use Cloudinary\Cloudinary;
 use App\Models\EmailVerification;
 use Illuminate\Support\Str;
 use App\Models\Course;
@@ -74,22 +75,30 @@ class AuthenticationController extends Controller
             ]);
 
             // Generate QR code URL
-            $frontendUrl = env('FRONTEND_URL'); // don't forget on env ah
+            $frontendUrl = env('FRONTEND_URL');
             $qrUrl = $frontendUrl . '/' . $user->id;
 
-            // Build file path
-            $folder = public_path('qrcodes');
-            File::ensureDirectoryExists($folder); // ensure folder exists
+            // Generate QR code SVG as string (in-memory, no file saved)
+            $qrSvg = QrCode::format('svg')->size(300)->generate($qrUrl);
 
-            $filename = $user->id . '.svg';
-            $filepath = $folder . '/' . $filename;//can be changed
+            // Initialize Cloudinary
+            $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
 
-            // Generate and save the QR code
-            QrCode::format('svg')->size(300)->generate($qrUrl, $filepath);
+            // Upload SVG content to Cloudinary using 'uploadApi()->upload' with base64
+            $uploadResult = $cloudinary->uploadApi()->upload(
+                'data:image/svg+xml;base64,' . base64_encode($qrSvg),
+                [
+                    'folder' => 'qrcodes',
+                    'public_id' => (string)$user->id,
+                    'overwrite' => true,
+                    'resource_type' => 'image',
+                    'format' => 'svg'
+                ]
+            );
 
-            // Save the relative path to the user
-            $user->qr_code_path = 'qrcodes/' . $filename;
-            $user->save();
+        // Save the secure URL to user profile
+        $user->qr_code_path = $uploadResult['secure_url'];
+        $user->save();
 
             // Generate 6-digit OTP
             $otp = (string) rand(100000, 999999);

@@ -10,6 +10,9 @@ use App\Models\PostImage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Cloudinary\Cloudinary;
+use Illuminate\Support\Facades\Log;
 
 
 class PostController extends Controller
@@ -55,6 +58,7 @@ class PostController extends Controller
             'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
+        // Create post first
         $post = Post::create([
             'user_id' => Auth::id(),
             'title'   => $request->title,
@@ -63,36 +67,52 @@ class PostController extends Controller
         ]);
 
         if ($request->hasFile('images')) {
-            $directory = public_path('post_images');
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-
             $manager = new ImageManager(new Driver());
+            $cloudinary = new Cloudinary();
+
             foreach ($request->file('images') as $imageFile) {
-                if (!$imageFile->isValid()) continue;
+                if (!$imageFile->isValid()) {
+                    continue;
+                }
 
-                $filename = time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
-                $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
-                $relativePath = 'post_images/' . $filename;
+                try {
+                    // Process image (resize + optimize)
+                    $image = $manager->read($imageFile->getRealPath())
+                        ->resize(800, 800, function ($constraint) {
+                            $constraint->aspectRatio();
+                            $constraint->upsize();
+                        })
+                        ->toJpeg(80);
 
-                $imageFile->move($directory, $filename);
+                    // Generate structured public ID
+                    $publicId = 'post_' . $post->id . '_' . Str::random(8);
+                    
+                    // Upload to Cloudinary
+                    $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
+                        'folder' => 'posts',
+                        'public_id' => $publicId,
+                        'overwrite' => true,
+                    ]);
 
-                $image = $manager->read($fullPath);
-                $image->resize(800, 800, function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                })->save($fullPath, 80);
-
-                PostImage::create([
-                    'post_id'    => $post->id,
-                    'image_name' => $filename,
-                    'image_file' => $relativePath,
-                ]);
+                    // Save image record
+                    PostImage::create([
+                        'post_id'    => $post->id,
+                        'image_name' => $publicId,
+                        'image_file' => $upload['secure_url'],
+                    ]);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'error' => 'Failed to upload image',
+                        'message' => $e->getMessage()
+                    ], 500);
+                }
             }
         }
 
-        return response()->json(['message' => 'Post created with images.'], 201);
+        return response()->json([
+            'message' => 'Post created successfully',
+            'post' => $post->load('images')
+        ], 201);
     }
 
     public function show($id)
@@ -107,40 +127,9 @@ class PostController extends Controller
         $request->validate([
             'title'   => 'sometimes|string|max:255',
             'content' => 'sometimes|string',
-            'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         $post->update($request->only('title', 'content'));
-
-        if ($request->hasFile('images')) {
-            $directory = public_path('post_images');
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-
-            $manager = new ImageManager(new Driver());
-            foreach ($request->file('images') as $imageFile) {
-                if (!$imageFile->isValid()) continue;
-
-                $filename = time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
-                $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
-                $relativePath = 'post_images/' . $filename;
-
-                $imageFile->move($directory, $filename);
-
-                $image = $manager->read($fullPath);
-                $image->resize(800, 800, function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                })->save($fullPath, 80);
-
-                PostImage::create([
-                    'post_id'    => $post->id,
-                    'image_name' => $filename,
-                    'image_file' => $relativePath,
-                ]);
-            }
-        }
 
         return response()->json(['message' => 'Post updated.']);
     }
@@ -148,10 +137,38 @@ class PostController extends Controller
 
     public function destroy($id)
     {
-        $post = Post::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+        $post = Post::with('images')
+            ->where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Delete all associated images from Cloudinary and database
+        if ($post->images->isNotEmpty()) {
+            $cloudinary = new Cloudinary();
+            
+            foreach ($post->images as $image) {
+                try {
+                    // Extract public_id from URL (consistent with your pattern)
+                    $path = parse_url($image->image_file, PHP_URL_PATH);
+                    $publicId = pathinfo($path, PATHINFO_FILENAME);
+                    
+                    // Delete from Cloudinary
+                    $cloudinary->uploadApi()->destroy('posts/' . $publicId);
+                    
+                    // Delete database record
+                    $image->delete();
+                } catch (\Exception $e) {
+                    Log::error("Failed to delete post image {$image->id}: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Delete the main post record
         $post->delete();
 
-        return response()->json(['message' => 'Post deleted successfully']);
+        return response()->json([
+            'message' => 'Post and all associated images deleted successfully'
+        ]);
     }
 
     public function updateStatus(Request $request, $id)

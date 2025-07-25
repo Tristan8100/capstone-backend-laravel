@@ -6,9 +6,11 @@ use App\Models\Announcement;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Str;
+use Cloudinary\Cloudinary;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+
 use Illuminate\Support\Facades\File;
 
 class AnnouncementController extends Controller
@@ -31,6 +33,7 @@ class AnnouncementController extends Controller
             'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
+        // Create announcement first
         $announcement = Announcement::create([
             'admin_id' => Auth::guard('admin-api')->id(),
             'title' => $request->title,
@@ -38,44 +41,31 @@ class AnnouncementController extends Controller
         ]);
 
         if ($request->hasFile('images')) {
-            $directory = public_path('announcement_images');
-
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-
             $manager = new ImageManager(new Driver());
-            $imageFiles = $request->file('images');
-
-            if (!is_array($imageFiles)) {
-                return response()->json(['error' => 'Uploaded images are not in an array format.'], 422);
-            }
-
-            foreach ($imageFiles as $imageFile) {
+            $cloudinary = new Cloudinary();
+            
+            foreach ($request->file('images') as $imageFile) {
                 if (!$imageFile->isValid()) {
                     continue; // Skip invalid uploads
                 }
 
-                $filename = time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
-                $fullPath = $directory . DIRECTORY_SEPARATOR . $filename;
-                $relativePath = 'announcement_images/' . $filename;
-
                 try {
-                    // Move original file
-                    $imageFile->move($directory, $filename);
+                    // Process image
+                    $image = $manager->read($imageFile->getRealPath())->toJpeg(80);
 
-                    // Resize and compress
-                    $image = $manager->read($fullPath);
-                    $image->resize(800, 800, function ($constraint) {
-                        $constraint->aspectRatio();
-                        $constraint->upsize();
-                    })->save($fullPath, 80);
+                    // Upload to Cloudinary with structured public ID
+                    $publicId = 'announcement_' . $announcement->id . '_' . Str::random(8);
+                    $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
+                        'folder' => 'announcements',
+                        'public_id' => $publicId,
+                        'overwrite' => true,
+                    ]);
 
-                    // Save image record
+                    // Save image record with Cloudinary URL
                     AnnouncementImage::create([
                         'announcement_id' => $announcement->id,
-                        'image_name' => $filename,
-                        'image_file' => $relativePath,
+                        'image_name' => $publicId,
+                        'image_file' => $upload['secure_url'],
                     ]);
                 } catch (\Exception $e) {
                     return response()->json([
@@ -86,7 +76,10 @@ class AnnouncementController extends Controller
             }
         }
 
-        return response()->json(['message' => 'Announcement created successfully.'], 201);
+        return response()->json([
+            'message' => 'Announcement created successfully.',
+            'announcement' => $announcement
+        ], 201);
     }
 
 
@@ -102,32 +95,52 @@ class AnnouncementController extends Controller
         $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'content' => 'sometimes|required|string',
-            'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        $announcement->update($request->only(['title', 'content']));
+        // Update basic fields
+        $announcement_updated = $announcement->update($request->only(['title', 'content']));
 
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $imageFile) {
-                $filename = time() . '_' . $imageFile->getClientOriginalName();
-                $imageFile->move(public_path('announcement_images'), $filename);
-
-                AnnouncementImage::create([
-                    'announcement_id' => $announcement->id,
-                    'image_name' => $filename,
-                    'image_file' => 'announcement_images/' . $filename,
-                ]);
-            }
-        }
-
-        return response()->json(['message' => 'Announcement updated.']);
+        return response()->json([
+            'message' => 'Announcement updated',
+            'announcement' => $announcement_updated
+        ]);
     }
 
     public function destroy($id)
     {
         $announcement = Announcement::findOrFail($id);
+        
+        // Get all associated images
+        $images = AnnouncementImage::where('announcement_id', $announcement->id)->get();
+        
+        if ($images->isNotEmpty()) {
+            $cloudinary = new Cloudinary();
+            
+            foreach ($images as $image) {
+                try {
+                    // Extract public_id from URL (your consistent method)
+                    $path = parse_url($image->image_file, PHP_URL_PATH);
+                    $publicId = pathinfo($path, PATHINFO_FILENAME);
+                    
+                    // Delete from Cloudinary
+                    $cloudinary->uploadApi()->destroy('announcements/' . $publicId);
+                    
+                    // Delete database record
+                    $image->delete();
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'error' => 'Failed to delete image.',
+                        'details' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+        
+        // Delete the main announcement
         $announcement->delete();
-
-        return response()->json(['message' => 'Announcement deleted.']);
+        
+        return response()->json([
+            'message' => 'Announcement and all associated images deleted successfully.'
+        ]);
     }
 }
