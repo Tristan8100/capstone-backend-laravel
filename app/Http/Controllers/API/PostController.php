@@ -159,6 +159,7 @@ class PostController extends Controller
                     $image->delete();
                 } catch (\Exception $e) {
                     Log::error("Failed to delete post image {$image->id}: " . $e->getMessage());
+                    continue;
                 }
             }
         }
@@ -172,16 +173,16 @@ class PostController extends Controller
     }
 
     public function updateStatus(Request $request, $id)
-{
-    $request->validate([
-        'status' => 'required|in:pending,accepted,declined',
-    ]);
+    {
+        $request->validate([
+            'status' => 'required|in:pending,accepted,declined',
+        ]);
 
-    $post = Post::findOrFail($id);
+        $post = Post::findOrFail($id);
 
-    $post->status = $request->status;
-    $post->save();
+        $post->status = $request->status;
+        $post->save();
 
-    return response()->json(['message' => 'Post status updated', 'post' => $post]);
-}
+        return response()->json(['message' => 'Post status updated', 'post' => $post]);
+    }
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Cloudinary\Cloudinary;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\File;
 
@@ -128,10 +129,8 @@ class AnnouncementController extends Controller
                     // Delete database record
                     $image->delete();
                 } catch (\Exception $e) {
-                    return response()->json([
-                        'error' => 'Failed to delete image.',
-                        'details' => $e->getMessage()
-                    ]);
+                    Log::error("Failed to delete post image {$image->id}: " . $e->getMessage());
+                    continue;
                 }
             }
         }

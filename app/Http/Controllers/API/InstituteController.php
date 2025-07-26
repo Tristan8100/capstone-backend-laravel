@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 use Cloudinary\Cloudinary;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Illuminate\Support\Facades\Log;
+
 class InstituteController extends Controller
 {
     public function index(Request $request)
@@ -101,7 +103,7 @@ class InstituteController extends Controller
             // Delete old image from Cloudinary if stored there
             if ($institute->image_path && str_starts_with($institute->image_path, 'https://res.cloudinary.com')) {
                 $publicId = pathinfo(parse_url($institute->image_path, PHP_URL_PATH), PATHINFO_FILENAME);
-                (new Cloudinary())->uploadApi()->destroy('institute/' . $publicId);
+                (new Cloudinary())->uploadApi()->destroy('institutes/' . $publicId);
             }
 
             // Resize and upload new image to Cloudinary
@@ -110,7 +112,7 @@ class InstituteController extends Controller
 
             $cloudinary = new Cloudinary();
             $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
-                'folder' => 'institute',
+                'folder' => 'institutes',
                 'public_id' => 'institute_' . $institute->id . '_' . time(),
                 'overwrite' => true,
             ]);
@@ -131,8 +133,12 @@ class InstituteController extends Controller
         $institute = Institute::findOrFail($id);
 
         if ($institute->image_path && str_starts_with($institute->image_path, 'https://res.cloudinary.com')) {
-            $publicId = pathinfo(parse_url($institute->image_path, PHP_URL_PATH), PATHINFO_FILENAME);
-            (new Cloudinary())->uploadApi()->destroy('institute/' . $publicId);
+            try{
+                $publicId = pathinfo(parse_url($institute->image_path, PHP_URL_PATH), PATHINFO_FILENAME);
+                (new Cloudinary())->uploadApi()->destroy('institutes/' . $publicId);
+            }catch (\Exception $e) {
+                Log::error("Failed to delete post image {$institute->id}: " . $e->getMessage());
+            }
         }
 
         $institute->delete();
