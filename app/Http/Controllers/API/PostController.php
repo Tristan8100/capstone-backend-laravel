@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Cloudinary\Cloudinary;
 use Illuminate\Support\Facades\Log;
-
+use App\Models\PostLike;
 
 class PostController extends Controller
 {
@@ -27,14 +27,27 @@ class PostController extends Controller
 
     public function indexStatus($status)
     {
-        if (!in_array($status, ['pending', 'accepted', 'declined'])) {
-            return response()->json(['error' => 'Invalid status'], 400);
-        }
+        $userId = Auth::id();
 
-        return Post::with('images', 'user',
-        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
-        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
-        )->where('status', $status)->latest()->get();
+        $posts = Post::with([
+                'images',
+                'user',
+                'comments.user:id,first_name,middle_name,last_name,profile_path',
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->withCount('postLikes as likes_count')
+            ->where('status', $status)
+            ->latest()
+            ->get()
+            ->map(function ($post) use ($userId) {
+                // Convert to boolean
+                $post->is_liked = (bool) $post->postLikes()
+                    ->where('user_id', $userId)
+                    ->exists();
+                return $post;
+            });
+
+        return $posts;
     }
 
     public function indexStatusMyPost($status)
@@ -43,10 +56,25 @@ class PostController extends Controller
             return response()->json(['error' => 'Invalid status'], 400);
         }
 
-        return Post::with('images', 'user',
-        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
-        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
-        )->where('status', $status)->where('user_id', Auth::id())->latest()->get();
+        $userId = Auth::id();
+
+        return Post::with([
+                'images',
+                'user',
+                'comments.user:id,first_name,middle_name,last_name,profile_path',
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->withCount('postLikes as likes_count')
+            ->where('status', $status)
+            ->where('user_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function ($post) use ($userId) {
+                $post->is_liked = (bool) $post->postLikes()
+                    ->where('user_id', $userId)
+                    ->exists();
+                return $post;
+            });
     }
 
     public function store(Request $request)

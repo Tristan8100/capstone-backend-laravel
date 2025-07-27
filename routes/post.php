@@ -2,6 +2,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\API\PostCommentController;
+use App\Http\Controllers\API\PostLikeController;
+
 Route::middleware('auth:sanctum')->group(function () {
     // Posts
     Route::get('/posts', [PostController::class, 'index']);
@@ -18,5 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/posts/comments', [PostCommentController::class, 'store']);
     Route::get('/posts/comments/{post}', [PostCommentController::class, 'index']);
 });
+
+Route::middleware('auth:user-api')->put('/posts/like/{id}', [PostLikeController::class, 'toggleLike']);
 
 Route::middleware('auth:admin-api')->put('/posts/change-status/{id}', [PostController::class, 'updateStatus']);

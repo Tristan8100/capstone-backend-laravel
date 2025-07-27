@@ -26,4 +26,24 @@ class Post extends Model
     {
         return $this->hasMany(PostImage::class);
     }
+
+    public function postLikes()
+    {
+        return $this->hasMany(PostLike::class);
+    }
+
+    // Quick access to likers
+    public function likers()
+    {
+        return $this->belongsToMany(User::class, 'post_likes', 'post_id', 'user_id')
+                ->withTimestamps();
+    }
+
+    // Check if user liked (optimized)
+    public function isLikedByUser($userId)
+    {
+        return $this->postLikes()
+                ->where('user_id', $userId)
+                ->exists();
+    }
 }
