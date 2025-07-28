@@ -72,7 +72,11 @@ class AuthenticationController extends Controller
                 'email'       => $validated['email'],
                 'password'    => Hash::make($validated['password']),
                 'course_id'   => $course->id, // save FK here
+                'batch'       => $validated['batch'],
             ]);
+
+            $alumniMatch->status = 'active';
+            $alumniMatch->save();
 
             // Generate QR code URL
             $frontendUrl = env('FRONTEND_URL');
@@ -225,6 +229,8 @@ class AuthenticationController extends Controller
                     'name'  => $user->first_name . ' ' . $user->last_name,
                     'email' => $user->email,
                     'course' => $user->course ? $user->course->name : null,
+                    'course_id' => $user->course_id,
+                    'batch' => $user->batch,
                     'qr_code_path' => $user->qr_code_path, // include QR code path
                     'profile_path' => $user->profile_path,
                 ],
@@ -319,6 +325,8 @@ class AuthenticationController extends Controller
                         'name'  => Auth::user()->full_name, //from getFullNameAttribute() both models, idk it's weird
                         'email' => Auth::user()->email,
                         'course' => Auth::user()->course ? Auth::user()->course->name : null,
+                        'course_id' => Auth::user()->course_id,
+                        'batch' => Auth::user()->batch,
                         'qr_code_path' => Auth::user()->qr_code_path, // include QR code path
                         'profile_path' => Auth::user()->profile_path,
                     ],

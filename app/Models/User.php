@@ -29,6 +29,7 @@ class User extends Authenticatable
         'email',
         'password',
         'course_id',
+        'batch',
         'qr_code_path',
         'profile_path',
     ];
@@ -59,6 +60,11 @@ class User extends Authenticatable
     public function getFullNameAttribute()
     {
         return trim("{$this->first_name} {$this->middle_name} {$this->last_name}");
+    }
+
+    public function getCourseNameAttribute()
+    {
+        return $this->course?->name;
     }
 
     //ANNOUNCEMENT MODULE

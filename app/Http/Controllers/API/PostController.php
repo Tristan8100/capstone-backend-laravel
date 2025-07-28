@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Cloudinary\Cloudinary;
 use Illuminate\Support\Facades\Log;
 use App\Models\PostLike;
+use App\Models\User;
 
 class PostController extends Controller
 {
@@ -141,6 +142,50 @@ class PostController extends Controller
             'message' => 'Post created successfully',
             'post' => $post->load('images')
         ], 201);
+    }
+
+    public function getUserWithPosts($userId)
+    {
+        // 1. Get user profile data
+        $user = User::select([
+                'id',
+                'first_name',
+                'middle_name', 
+                'last_name',
+                'profile_path',
+                'email',
+                'batch',
+                'created_at',
+                'course_id',
+            ])
+            ->withCount('posts as total_posts')
+            ->with(['course:id,name'])
+            ->findOrFail($userId);
+
+        // 2. Get user's accepted posts with like data
+
+        $allPosts = Post::with([
+                'images',
+                'user',
+                'comments.user:id,first_name,middle_name,last_name,profile_path',
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->withCount('postLikes as likes_count')
+            ->where('status', 'accepted')
+            ->where('user_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function ($post) use ($userId) {
+                $post->is_liked = (bool) $post->postLikes()
+                    ->where('user_id', $userId)
+                    ->exists();
+                return $post;
+            });
+
+        return [
+            'user' => $user,
+            'posts' => $allPosts
+        ];
     }
 
     public function show($id)
