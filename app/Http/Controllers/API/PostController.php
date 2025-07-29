@@ -15,6 +15,7 @@ use Cloudinary\Cloudinary;
 use Illuminate\Support\Facades\Log;
 use App\Models\PostLike;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
@@ -148,19 +149,27 @@ class PostController extends Controller
     {
         // 1. Get user profile data
         $user = User::select([
-                'id',
-                'first_name',
-                'middle_name', 
-                'last_name',
-                'profile_path',
-                'email',
-                'batch',
-                'created_at',
-                'course_id',
-            ])
-            ->withCount('posts as total_posts')
-            ->with(['course:id,name'])
-            ->findOrFail($userId);
+            'id',
+            'first_name',
+            'middle_name', 
+            'last_name',
+            'profile_path',
+            'email',
+            'batch',
+            'created_at',
+            'course_id',
+        ])
+        ->withCount([
+            'posts as total_posts',
+            'postLikes as total_likes_given', // posts this user has liked
+            'posts as total_likes_received' => function($query) {
+                $query->select(DB::raw('sum(
+                    (select count(*) from post_likes where post_likes.post_id = posts.id)
+                )'));
+            }
+        ])
+        ->with(['course:id,name'])
+        ->findOrFail($userId);
 
         // 2. Get user's accepted posts with like data
 
