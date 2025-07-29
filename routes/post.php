@@ -14,8 +14,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     //by status
     Route::get('/posts/status/{status}', [PostController::class, 'indexStatus']); //all
+    Route::get('/posts/status/{status}/{id}', [PostController::class, 'indexStatusUserPost']);
     Route::get('/my-posts/status/{status}', [PostController::class, 'indexStatusMyPost']); //auth user only
-    Route::get('/posts/user/{id}', [PostController::class, 'getUserWithPosts']); //specific user, for search pusposes
+    Route::get('/posts/user/{id}', [PostController::class, 'getUserWithPosts']); //specific user, data on view profile
 
     // Post Comments
     Route::post('/posts/comments', [PostCommentController::class, 'store']);

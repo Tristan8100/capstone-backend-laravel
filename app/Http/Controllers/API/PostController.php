@@ -90,6 +90,40 @@ class PostController extends Controller
         ]);
     }
 
+    public function indexStatusUserPost($status, $id)
+    {
+        if (!in_array($status, ['pending', 'accepted', 'declined'])) {
+            return response()->json(['error' => 'Invalid status'], 400);
+        }
+
+        $perPage = 3; // Items per load
+
+        $posts = Post::with([
+                'images',
+                'user',
+                'comments.user:id,first_name,middle_name,last_name,profile_path',
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->withCount('postLikes as likes_count')
+            ->where('status', $status)
+            ->where('user_id', $id)
+            ->latest()
+            ->paginate($perPage)
+            ->through(function ($post) use ($id) {
+                $post->is_liked = (bool) $post->postLikes()
+                    ->where('user_id', Auth::id())
+                    ->exists();
+                return $post;
+            });
+
+        return response()->json([
+            'data' => $posts->items(),
+            'next_page_url' => $posts->nextPageUrl(),
+            'current_page' => $posts->currentPage(),
+            'last_page' => $posts->lastPage()
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -182,29 +216,8 @@ class PostController extends Controller
         ->with(['course:id,name'])
         ->findOrFail($userId);
 
-        // 2. Get user's accepted posts with like data
-
-        $allPosts = Post::with([
-                'images',
-                'user',
-                'comments.user:id,first_name,middle_name,last_name,profile_path',
-                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
-            ])
-            ->withCount('postLikes as likes_count')
-            ->where('status', 'accepted')
-            ->where('user_id', $userId)
-            ->latest()
-            ->get()
-            ->map(function ($post) use ($userId) {
-                $post->is_liked = (bool) $post->postLikes()
-                    ->where('user_id', $userId)
-                    ->exists();
-                return $post;
-            });
-
         return [
             'user' => $user,
-            'posts' => $allPosts
         ];
     }
 
