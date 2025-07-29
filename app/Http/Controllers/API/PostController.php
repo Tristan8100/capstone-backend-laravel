@@ -30,6 +30,7 @@ class PostController extends Controller
     public function indexStatus($status)
     {
         $userId = Auth::id();
+        $perPage = 3; // Items per load
 
         $posts = Post::with([
                 'images',
@@ -40,16 +41,18 @@ class PostController extends Controller
             ->withCount('postLikes as likes_count')
             ->where('status', $status)
             ->latest()
-            ->get()
-            ->map(function ($post) use ($userId) {
-                // Convert to boolean
+            ->paginate($perPage)
+            ->through(function ($post) use ($userId) {
                 $post->is_liked = (bool) $post->postLikes()
                     ->where('user_id', $userId)
                     ->exists();
                 return $post;
             });
 
-        return $posts;
+        return response()->json([
+            'data' => $posts->items(),
+            'next_page_url' => $posts->nextPageUrl() // Critical for infinite scroll
+        ]);
     }
 
     public function indexStatusMyPost($status)
@@ -59,8 +62,9 @@ class PostController extends Controller
         }
 
         $userId = Auth::id();
+        $perPage = 3; // Items per load
 
-        return Post::with([
+        $posts = Post::with([
                 'images',
                 'user',
                 'comments.user:id,first_name,middle_name,last_name,profile_path',
@@ -70,13 +74,20 @@ class PostController extends Controller
             ->where('status', $status)
             ->where('user_id', $userId)
             ->latest()
-            ->get()
-            ->map(function ($post) use ($userId) {
+            ->paginate($perPage)
+            ->through(function ($post) use ($userId) {
                 $post->is_liked = (bool) $post->postLikes()
                     ->where('user_id', $userId)
                     ->exists();
                 return $post;
             });
+
+        return response()->json([
+            'data' => $posts->items(),
+            'next_page_url' => $posts->nextPageUrl(),
+            'current_page' => $posts->currentPage(),
+            'last_page' => $posts->lastPage()
+        ]);
     }
 
     public function store(Request $request)
