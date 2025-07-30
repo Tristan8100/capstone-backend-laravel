@@ -50,6 +50,9 @@ class AccountController extends Controller
                 'id' => $alumnus->id,
                 'firstName' => $alumnus->first_name,
                 'lastName' => $alumnus->last_name,
+                'email' => $alumnus->email,
+                'batch' => $alumnus->batch,
+                'profile_path' => $alumnus->profile_path,
                 'course' => $alumnus->course->name ?? null, // Get course name, or null if no course
                 'institute' => $alumnus->course->institute->name ?? null, // Get institute name via course, or null
             ];

@@ -11,6 +11,7 @@ use Cloudinary\Cloudinary;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\Log;
+use App\Models\AnnouncementLike;
 
 use Illuminate\Support\Facades\File;
 
@@ -18,11 +19,33 @@ class AnnouncementController extends Controller
 {
     public function index()
     {
-        return Announcement::with([
-        'images',
-        'comments.user:id,first_name,middle_name,last_name,profile_path', // only fetch what's needed
-        'comments.replies.user:id,first_name,middle_name,last_name,profile_path' // Include user info for each reply
-    ])->latest()->get();
+        $userId = Auth::id();
+        $perPage = 3; // Set fixed number of items per page
+
+        $announcements = Announcement::with([
+                'images',
+                'comments.user:id,first_name,middle_name,last_name,profile_path',
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->withCount('likes as likes_count')
+            ->addSelect([
+                'is_liked' => AnnouncementLike::selectRaw('COUNT(*) > 0')
+                    ->whereColumn('announcement_id', 'announcements.id')
+                    ->where('user_id', $userId)
+            ])
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $announcements->items(),
+            'pagination' => [
+                'current_page' => $announcements->currentPage(),
+                'last_page' => $announcements->lastPage(),
+                'per_page' => $announcements->perPage(),
+                'total' => $announcements->total(),
+                'next_page_url' => $announcements->nextPageUrl(),
+            ]
+        ]);
     }
 
     public function store(Request $request)
