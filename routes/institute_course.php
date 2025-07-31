@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\InstituteController;
 use App\Http\Controllers\API\CourseController;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Institute routes
     Route::get('/institutes-general', [InstituteController::class, 'index']);
     Route::post('/institutes-general', [InstituteController::class, 'store']);

@@ -5,7 +5,7 @@ use App\Http\Controllers\API\QuestionController;
 use App\Http\Controllers\API\ChoiceController;
 use App\Http\Controllers\API\ResponseController;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Surveys
     Route::get('/surveys', [SurveyController::class, 'index']);
     Route::get('/surveys/{id}', [SurveyController::class, 'show']);

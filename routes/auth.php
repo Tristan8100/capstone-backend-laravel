@@ -7,7 +7,7 @@ use App\Http\Controllers\API\VerifyEmailController;
 use App\Http\Controllers\API\AuthenticationController;
 
 //USER
-Route::middleware('auth:user-api')->group(function () {
+Route::middleware(['auth:user-api', 'agent'])->group(function () {
     Route::get('get-user', [AuthenticationController::class, 'userInfo'])->name('get-user');
     Route::post('logout', [AuthenticationController::class, 'logOut'])->name('logout');
     Route::get('verify-user', [AuthenticationController::class, 'verifyToken'])->name('verify-user');

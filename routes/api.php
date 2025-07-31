@@ -38,3 +38,7 @@ Route::post('/upload-image', function (Request $request) {
         'optimized_url' => $optimizedUrl,
     ]);
 });
+
+Route::get('/test', function (Request $request) {
+    return response()->json(['message' => $request->header('User-Agent'),]);
+});

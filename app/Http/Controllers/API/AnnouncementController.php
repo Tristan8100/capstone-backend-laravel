@@ -20,7 +20,7 @@ class AnnouncementController extends Controller
     public function index()
     {
         $userId = Auth::id();
-        $perPage = 3; // Set fixed number of items per page
+        $perPage = 3;
 
         $announcements = Announcement::with([
                 'images',
@@ -77,7 +77,7 @@ class AnnouncementController extends Controller
                     // Process image
                     $image = $manager->read($imageFile->getRealPath())->toJpeg(80);
 
-                    // Upload to Cloudinary with structured public ID
+                    //upload to Cloudinary with structured public ID
                     $publicId = 'announcement_' . $announcement->id . '_' . Str::random(8);
                     $upload = $cloudinary->uploadApi()->upload($image->toDataUri(), [
                         'folder' => 'announcements',

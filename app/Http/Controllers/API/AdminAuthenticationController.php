@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Admin;
+use App\Models\TokenValidation;
+
 class AdminAuthenticationController extends Controller
 {
     public function login(Request $request)
@@ -31,7 +33,13 @@ class AdminAuthenticationController extends Controller
 
         // Delete old tokens & create new token
         $admin->tokens()->delete();
+        TokenValidation::where('user_id', $admin->id)->delete(); // delete the old one
         $token = $admin->createToken('admin-auth-token')->plainTextToken;
+        TokenValidation::create([
+            'user_id' => $admin->id,
+            'token_bearer' => $token,
+            'user_agent' => $request->header('User-Agent'),
+        ]);
 
         return response()->json([
             'response_code' => 200,

@@ -17,6 +17,9 @@ use Illuminate\Support\Str;
 use App\Models\Course;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\File;
+use App\Models\TokenValidation;
+use Doctrine\Common\Lexer\Token;
+
 class AuthenticationController extends Controller
 {
     /**
@@ -216,7 +219,14 @@ class AuthenticationController extends Controller
             }
 
             $user->tokens()->delete();
+            TokenValidation::where('user_id', $user->id)->delete(); // delete the old one
             $token = $user->createToken('authToken')->plainTextToken;
+
+            TokenValidation::create([
+                'user_id' => $user->id,
+                'token_bearer' => $token,
+                'user_agent' => $request->header('User-Agent'),
+            ]);
 
             return response()->json([
                 'response_code' => 200,
@@ -288,6 +298,7 @@ class AuthenticationController extends Controller
 
             if ($user) {
                 $user->tokens()->delete();
+                TokenValidation::where('user_id', $user->id)->delete(); // delete all tokens for this user
 
                 return response()->json([
                     'response_code' => 200,

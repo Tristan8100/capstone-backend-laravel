@@ -4,7 +4,7 @@ use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\API\PostCommentController;
 use App\Http\Controllers\API\PostLikeController;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Posts
     Route::get('/posts', [PostController::class, 'index']);
     Route::post('/posts', [PostController::class, 'store']);
@@ -23,6 +23,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/posts/comments/{post}', [PostCommentController::class, 'index']);
 });
 
-Route::middleware('auth:user-api')->put('/posts/like/{id}', [PostLikeController::class, 'toggleLike']);
+Route::middleware(['auth:user-api', 'agent'])->put('/posts/like/{id}', [PostLikeController::class, 'toggleLike']);
 
-Route::middleware('auth:admin-api')->put('/posts/change-status/{id}', [PostController::class, 'updateStatus']);
+Route::middleware(['auth:admin-api', 'agent'])->put('/posts/change-status/{id}', [PostController::class, 'updateStatus']);

@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AccountController;
 
-Route::middleware('auth:sanctum')->group(function () { // might change later
+Route::middleware(['auth:sanctum', 'agent'])->group(function () { // might change later
     // Routes for fetching filter options
     Route::get('/institutes', [AccountController::class, 'institutes']);
     Route::get('/courses', [AccountController::class, 'courses']);

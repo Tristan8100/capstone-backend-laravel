@@ -2,7 +2,7 @@
 use App\Http\Controllers\AlumniListController;
 use Illuminate\Support\Facades\Route;
 //ADMIN
-Route::middleware('auth:admin-api')->group(function () {
+Route::middleware(['auth:admin-api', 'agent'])->group(function () {
     Route::get('/alumni-list', [AlumniListController::class, 'index']);
     Route::get('/alumni-list/{id}', [AlumniListController::class, 'show']);
     Route::post('/alumni-list', [AlumniListController::class, 'store']);
