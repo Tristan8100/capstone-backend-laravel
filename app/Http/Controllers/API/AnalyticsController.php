@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Post;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\AlumniList;
 
 class AnalyticsController extends Controller
 {
@@ -44,6 +45,34 @@ class AnalyticsController extends Controller
             'top_users' => $topUsers,
             'common_words' => $commonWords,
             'pending_ratio' => $pendingRatio,
+        ]);
+    }
+
+    public function alumniAnalytics()
+    {
+        return response()->json([
+            'status_counts' => AlumniList::groupBy('status')
+                ->select('status', DB::raw('count(*) as total'))
+                ->get(),
+            'batch_distribution' => AlumniList::groupBy('batch')
+                ->select('batch', DB::raw('count(*) as total'))
+                ->orderBy('batch')
+                ->get(),
+            'course_distribution' => AlumniList::groupBy('course')
+                ->select('course', DB::raw('count(*) as total'))
+                ->orderByDesc('total')
+                ->get(),
+            'recent_grads_count' => AlumniList::where('batch', '>=', now()->subYears(5)->year)->count(),
+            'batch_stats' => [
+                'earliest' => AlumniList::min('batch'),
+                'latest' => AlumniList::max('batch'),
+                'average' => round(AlumniList::avg('batch')),
+            ],
+            'common_last_names' => AlumniList::groupBy('last_name')
+                ->select('last_name', DB::raw('count(*) as total'))
+                ->orderByDesc('total')
+                ->limit(5)
+                ->get()
         ]);
     }
 }
