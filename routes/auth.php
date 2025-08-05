@@ -5,12 +5,14 @@ use App\Http\Controllers\API\ResetPasswordController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\VerifyEmailController;
 use App\Http\Controllers\API\AuthenticationController;
+use App\Models\Admin;
 
 //USER
 Route::middleware(['auth:user-api', 'agent'])->group(function () {
     Route::get('get-user', [AuthenticationController::class, 'userInfo'])->name('get-user');
     Route::post('logout', [AuthenticationController::class, 'logOut'])->name('logout');
     Route::get('verify-user', [AuthenticationController::class, 'verifyToken'])->name('verify-user');
+    Route::post('update-password', [AuthenticationController::class, 'changePassword']);
 });
 Route::post('find-profile', [AuthenticationController::class, 'findprofile'])->name('find-profile');
 
@@ -45,4 +47,6 @@ Route::post('/admin-login', [AdminAuthenticationController::class, 'login']);
 Route::middleware('auth:admin-api')->group(function () {
     Route::post('admin-logout', [AuthenticationController::class, 'logOut'])->name('logout');
     Route::get('verify-admin', [AuthenticationController::class, 'verifyToken'])->name('verify-user');
+
+    Route::post('update-password-admin', [AdminAuthenticationController::class, 'changePasswordAdmin']);
 });

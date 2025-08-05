@@ -25,7 +25,8 @@ class AnnouncementController extends Controller
         $announcements = Announcement::with([
                 'images',
                 'comments.user:id,first_name,middle_name,last_name,profile_path',
-                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+                'comments.replies.user:id,first_name,middle_name,last_name,profile_path',
+                'admin:id,name,email,profile_path',
             ])
             ->withCount('likes as likes_count')
             ->addSelect([
