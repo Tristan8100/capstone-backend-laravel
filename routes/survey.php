@@ -9,8 +9,8 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Surveys
     Route::get('/surveys', [SurveyController::class, 'index']);
     Route::get('/surveys/{id}', [SurveyController::class, 'show']);
-    Route::post('/surveys', [SurveyController::class, 'store']);
-    Route::put('/surveys/{id}', [SurveyController::class, 'update']);
+    Route::post('/surveys', [SurveyController::class, 'store']); // modify for course (not yet implemented)
+    Route::put('/surveys/{id}', [SurveyController::class, 'update']); // modify for course (not yet implemented)
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
     Route::get('/surveys/results/{id}', [SurveyController::class, 'showResults']);
@@ -36,7 +36,7 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Responses
     Route::get('/responses', [ResponseController::class, 'index']);
     Route::get('/responses/{id}', [ResponseController::class, 'show']);
-    Route::post('/responses', [ResponseController::class, 'store']);
+    Route::post('/responses', [ResponseController::class, 'store']); // modify for course (not yet implemented)
     Route::delete('/responses/{id}', [ResponseController::class, 'destroy']);
 
     // Last resort

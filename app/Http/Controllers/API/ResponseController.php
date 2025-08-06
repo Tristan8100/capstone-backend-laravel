@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Response;
 use App\Models\Answer;
 use App\Models\AnswerChoice;
+use App\Models\Survey;
+
 class ResponseController extends Controller
 {
     //List all responses of the current user
@@ -43,6 +45,15 @@ class ResponseController extends Controller
             'answers.*.choice_ids' => 'nullable|array',
             'answers.*.choice_ids.*' => 'exists:choices,id',
         ]);
+
+        $survey = Survey::findOrFail($validated['survey_id']);
+
+        //check
+        if ($survey->course_id && $survey->course_id !== Auth::user()->course_id) {
+            return response()->json([
+                'message' => 'This survey is restricted to '.$survey->course->name.' students'
+            ], 403);
+        }
 
         // Update or create the response (one per user per survey)
         $response = Response::updateOrCreate(

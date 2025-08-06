@@ -8,18 +8,38 @@ use App\Models\Survey;
 use App\Models\AnswerChoice;
 use App\Models\Answer;
 use App\Models\Response;
+use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Support\Facades\DB;
 class SurveyController extends Controller
 {
     public function index()
     {
-        return Survey::latest()->get();
+        $userId = Auth::id();
+        $surveys = Survey::with('course')->latest()->get();
+        
+        // Get all response statuses in one query
+        $respondedSurveyIds = Response::whereIn('survey_id', $surveys->pluck('id'))
+            ->where('user_id', $userId)
+            ->pluck('survey_id')
+            ->toArray();
+        
+        return $surveys->each(function ($survey) use ($respondedSurveyIds) {
+            $survey->has_responded = in_array($survey->id, $respondedSurveyIds);
+        });
     }
 
     public function show($id)
     {
-        return Survey::with('questions.choices')->findOrFail($id);
+        $survey = Survey::with('questions.choices')
+            ->findOrFail($id);
+        
+        // Check if user has responded
+        $survey->has_responded = Response::where('survey_id', $id)
+            ->where('user_id', Auth::id())
+            ->exists();
+        
+        return $survey;
     }
 
     public function store(Request $request)
@@ -27,6 +47,7 @@ class SurveyController extends Controller
         $validated = $request->validate([
             'title' => 'required|string',
             'description' => 'nullable|string',
+            'course_id' => 'nullable|string|exists:courses,id'// Added new
         ]);
 
         return Survey::create($validated);
@@ -34,9 +55,19 @@ class SurveyController extends Controller
 
     public function update(Request $request, $id)
     {
+        $validated = $request->validate([
+            'title' => 'sometimes|string',
+            'description' => 'nullable|string',
+            'course_id' => 'nullable|string|exists:courses,id' // Added new
+        ]);
+
         $survey = Survey::findOrFail($id);
-        $survey->update($request->only(['title', 'description']));
-        return response()->json(['message' => 'Survey updated.']);
+        $survey->update($validated);
+        
+        return response()->json([
+            'message' => 'Survey updated successfully',
+            'survey' => $survey
+        ]);
     }
 
     public function destroy($id)

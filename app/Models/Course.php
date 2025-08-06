@@ -23,4 +23,9 @@ class Course extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function surveys()
+    {
+        return $this->hasMany(Survey::class);
+    }
 }

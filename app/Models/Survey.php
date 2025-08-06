@@ -11,6 +11,7 @@ class Survey extends Model
     protected $fillable = [
         'title',
         'description',
+        'course_id',
     ];
 
     public function questions()
@@ -21,5 +22,10 @@ class Survey extends Model
     public function responses()
     {
         return $this->hasMany(Response::class);
+    }
+
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
     }
 }
