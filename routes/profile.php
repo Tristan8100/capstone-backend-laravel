@@ -12,3 +12,5 @@ Route::middleware(['auth:admin-api', 'agent'])->group(function () {
     // ADMIN PROFILE
     Route::post('/profile-picture-admin', [ProfileController::class, 'addPhotoAdmin']);
 });
+
+Route::get('/profile/user/{id}', [ProfileController::class, 'verifyId']);

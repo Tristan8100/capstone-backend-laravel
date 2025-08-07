@@ -98,4 +98,24 @@ class ProfileController extends Controller
             'profile_path' => $secureUrl,
         ]);
     }
+
+    public function verifyId($id){
+        $user = User::where('id', $id)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Check if the user has a profile photo
+        $hasPhoto = !empty($user->profile_path) && str_starts_with($user->profile_path, 'https://res.cloudinary.com');
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->full_name,
+            'email' => $user->email,
+            'batch' => $user->batch,
+            'course' => $user->course_name, //using the attribute thing
+            'profile_photo' => $hasPhoto ? $user->profile_path : null,
+        ]);
+    }
 }

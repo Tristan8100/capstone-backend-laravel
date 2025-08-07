@@ -83,7 +83,7 @@ class AuthenticationController extends Controller
 
             // Generate QR code URL
             $frontendUrl = env('FRONTEND_URL');
-            $qrUrl = $frontendUrl . '/' . $user->id;
+            $qrUrl = $frontendUrl . '/verify/' . $user->id; //modified /verify/
 
             // Generate QR code SVG as string (in-memory, no file saved)
             $qrSvg = QrCode::format('svg')->size(300)->generate($qrUrl);
