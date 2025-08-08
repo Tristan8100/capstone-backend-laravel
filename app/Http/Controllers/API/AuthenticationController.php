@@ -68,7 +68,7 @@ class AuthenticationController extends Controller
 
             // Create user with course_id foreign key
             $user = User::create([
-                'id'          => $alumniMatch->student_id, // keep your ID logic
+                'id'          => $alumniMatch->student_id,
                 'first_name'  => $alumniMatch->first_name,
                 'middle_name' => $alumniMatch->middle_name ?? null,
                 'last_name'   => $alumniMatch->last_name,
@@ -85,13 +85,13 @@ class AuthenticationController extends Controller
             $frontendUrl = env('FRONTEND_URL');
             $qrUrl = $frontendUrl . '/verify/' . $user->id; //modified /verify/
 
-            // Generate QR code SVG as string (in-memory, no file saved)
+            // Generate QR code SVG as string (in-memory thing)
             $qrSvg = QrCode::format('svg')->size(300)->generate($qrUrl);
 
-            // Initialize Cloudinary
+            // Initialize Cloudinary obj
             $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
 
-            // Upload SVG content to Cloudinary using 'uploadApi()->upload' with base64
+            //Upload SVG
             $uploadResult = $cloudinary->uploadApi()->upload(
                 'data:image/svg+xml;base64,' . base64_encode($qrSvg),
                 [

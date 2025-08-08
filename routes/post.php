@@ -14,9 +14,14 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
 
     //by status
     Route::get('/posts/status/{status}', [PostController::class, 'indexStatus']); //all
-    Route::get('/posts/status/{status}/{id}', [PostController::class, 'indexStatusUserPost']);
+    Route::get('/posts/status/{status}/{id}', [PostController::class, 'indexStatusUserPost']); //specific user posts
     Route::get('/my-posts/status/{status}', [PostController::class, 'indexStatusMyPost']); //auth user only
-    Route::get('/posts/user/{id}', [PostController::class, 'getUserWithPosts']); //specific user, data on view profile
+    Route::get('/posts/user/{id}', [PostController::class, 'getUserWithPosts']); //specific user, DATA on view profile
+
+    //modified for infinite scroll
+    Route::get('/posts-only/status/{status}', [PostController::class, 'indexStatusPost']);
+    Route::get('/posts-only/comments/{id}', [PostController::class, 'getPostComments']); //post id
+    Route::get('/posts-only/replies/{id}', [PostController::class, 'getCommentReplies']); // comment id
 
     // Post Comments
     Route::post('/posts/comments', [PostCommentController::class, 'store']);

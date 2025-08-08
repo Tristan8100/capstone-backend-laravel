@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\PostLike;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Models\PostComment;
 
 class PostController extends Controller
 {
@@ -51,9 +52,77 @@ class PostController extends Controller
 
         return response()->json([
             'data' => $posts->items(),
-            'next_page_url' => $posts->nextPageUrl() // Critical for infinite scroll
+            'next_page_url' => $posts->nextPageUrl() //needed
         ]);
     }
+
+    // Modified for infinite scroll
+    public function indexStatusPost($status)
+    {
+        $userId = Auth::id();
+        $perPage = 3; // Items per load
+
+        $posts = Post::with([
+                'images',
+                'user', 
+            ])
+            ->withCount([
+                'postLikes as likes_count',
+                'comments as comments_count' // new added
+            ])
+            ->where('status', $status)
+            ->latest()
+            ->paginate($perPage)
+            ->through(function ($post) use ($userId) {
+                $post->is_liked = (bool) $post->postLikes()
+                    ->where('user_id', $userId)
+                    ->exists();
+                return $post;
+            });
+
+        return response()->json([
+            'data' => $posts->items(),
+            'next_page_url' => $posts->nextPageUrl()
+        ]);
+    }
+
+    public function getPostComments($postId)
+    {
+        $perPage = 10; // Comments per load
+
+
+        $comments = PostComment::with([
+                'user:id,first_name,middle_name,last_name,profile_path',
+            ])
+            ->withCount('replies')
+            ->where('post_id', $postId)
+            ->whereNull('parent_id') // IMPORTANT: Only top-level comments
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $comments->items(),
+            'next_page_url' => $comments->nextPageUrl()
+        ]);
+    }
+
+    public function getCommentReplies($commentId)
+    {
+        $perPage = 5; // Replies per load
+
+        $replies = PostComment::with([
+                'user:id,first_name,middle_name,last_name,profile_path'
+            ])
+            ->where('parent_id', $commentId)
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $replies->items(),
+            'next_page_url' => $replies->nextPageUrl()
+        ]);
+    }
+    //END
 
     public function indexStatusMyPost($status)
     {
@@ -67,10 +136,10 @@ class PostController extends Controller
         $posts = Post::with([
                 'images',
                 'user',
-                'comments.user:id,first_name,middle_name,last_name,profile_path',
-                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
             ])
-            ->withCount('postLikes as likes_count')
+            ->withCount(['postLikes as likes_count', 
+                'comments as comments_count' // Added comment count
+            ])
             ->where('status', $status)
             ->where('user_id', $userId)
             ->latest()
@@ -100,16 +169,17 @@ class PostController extends Controller
 
         $posts = Post::with([
                 'images',
-                'user',
-                'comments.user:id,first_name,middle_name,last_name,profile_path',
-                'comments.replies.user:id,first_name,middle_name,last_name,profile_path'
+                'user'
             ])
-            ->withCount('postLikes as likes_count')
+            ->withCount([
+                'postLikes as likes_count',
+                'comments as comments_count'  // Added comment count
+            ])
             ->where('status', $status)
             ->where('user_id', $id)
             ->latest()
             ->paginate($perPage)
-            ->through(function ($post) use ($id) {
+            ->through(function ($post) {
                 $post->is_liked = (bool) $post->postLikes()
                     ->where('user_id', Auth::id())
                     ->exists();

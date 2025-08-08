@@ -18,6 +18,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('comments/{id}', [CommentController::class, 'destroy']);
     Route::get('alumni/announcements/{id}', [AnnouncementController::class, 'show']);
     Route::get('alumni/announcements', [AnnouncementController::class, 'index']);
+
+    // Modified
+    Route::get('alumni/announcements-only', [AnnouncementController::class, 'index2']);
+    Route::get('announcements-only/{id}', [AnnouncementController::class, 'getComments']);// Announcement ID
+    Route::get('announcements-only/replies/{id}', [AnnouncementController::class, 'getReplies']);// Comment ID
 });
 
 Route::middleware(['auth:user-api', 'agent'])->put('/announcements/{announcement}/like', [AnnouncementLikeController::class, 'toggleLike']);

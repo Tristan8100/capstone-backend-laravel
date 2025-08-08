@@ -12,11 +12,13 @@ use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\Log;
 use App\Models\AnnouncementLike;
+use App\Models\Comment;
 
 use Illuminate\Support\Facades\File;
 
 class AnnouncementController extends Controller
 {
+
     public function index()
     {
         $userId = Auth::id();
@@ -45,6 +47,87 @@ class AnnouncementController extends Controller
                 'per_page' => $announcements->perPage(),
                 'total' => $announcements->total(),
                 'next_page_url' => $announcements->nextPageUrl(),
+            ]
+        ]);
+    }
+
+    public function index2()
+    {
+        $userId = Auth::id();
+        $perPage = 3;
+
+        $announcements = Announcement::with([
+                'images',
+                'admin:id,name,email,profile_path',
+            ])
+            ->withCount([
+                'likes as likes_count',
+                'comments as comments_count'  // Add comment count
+            ])
+            ->addSelect([
+                'is_liked' => AnnouncementLike::selectRaw('COUNT(*) > 0')
+                    ->whereColumn('announcement_id', 'announcements.id')
+                    ->where('user_id', $userId)
+            ])
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $announcements->items(),
+            'pagination' => [
+                'current_page' => $announcements->currentPage(),
+                'last_page' => $announcements->lastPage(),
+                'per_page' => $announcements->perPage(),
+                'total' => $announcements->total(),
+                'next_page_url' => $announcements->nextPageUrl(),
+            ]
+        ]);
+    }
+
+    public function getComments($announcementId)
+    {
+        $perPage = 5; // Comments per load
+
+        $comments = Comment::with([
+                'user:id,first_name,middle_name,last_name,profile_path',
+            ])
+            ->withCount('replies')
+            ->where('announcement_id', $announcementId)
+            ->whereNull('parent_id') //IMPORTANT: Only top-level comments
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $comments->items(),
+            'pagination' => [
+                'current_page' => $comments->currentPage(),
+                'last_page' => $comments->lastPage(),
+                'per_page' => $comments->perPage(),
+                'total' => $comments->total(),
+                'next_page_url' => $comments->nextPageUrl(),
+            ]
+        ]);
+    }
+
+    public function getReplies($commentId)
+    {
+        $perPage = 5; // Replies per load
+
+        $replies = Comment::with([
+                'user:id,first_name,middle_name,last_name,profile_path',
+            ])
+            ->where('parent_id', $commentId)
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $replies->items(),
+            'pagination' => [
+                'current_page' => $replies->currentPage(),
+                'last_page' => $replies->lastPage(),
+                'per_page' => $replies->perPage(),
+                'total' => $replies->total(),
+                'next_page_url' => $replies->nextPageUrl(),
             ]
         ]);
     }
