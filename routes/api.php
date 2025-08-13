@@ -15,6 +15,7 @@ require __DIR__ . '/survey.php';
 require __DIR__ . '/accounts.php'; //edit image NOT SURE
 require __DIR__ . '/profile.php'; //edit image DONE
 require __DIR__ . '/analytics.php'; //edit image DONE
+require __DIR__ . '/conversations.php';
 
 // FOR TESTING ONLY
 Route::get('/qr-test', function () {
