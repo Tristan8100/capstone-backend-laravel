@@ -11,6 +11,8 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () { // might chang
     Route::get('/get-admins', [ConversationController::class, 'displayAdmins']);
 
     Route::get('/conversations/{id}', [ConversationController::class, 'showConversation']);
+
+    Route::put('/conversations-last-message/{id}', [ConversationController::class, 'lastMessage']);
 });
 
 Route::middleware(['auth:user-api', 'agent'])->group(function () {
