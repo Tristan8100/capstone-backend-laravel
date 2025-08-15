@@ -66,11 +66,16 @@ class AnalyticsController extends Controller
                 ->select('course', DB::raw('count(*) as total'))
                 ->orderByDesc('total')
                 ->get(),
-            'recent_grads_count' => AlumniList::where('batch', '>=', now()->subYears(5)->year)->count(),
+            'recent_grads_count' => AlumniList::where('batch', '>=', now()->subYears(2)->year)->count(),
             'batch_stats' => [
                 'earliest' => AlumniList::min('batch'),
                 'latest' => AlumniList::max('batch'),
                 'average' => round(AlumniList::avg('batch')),
+                'most_common_batch' => AlumniList::groupBy('batch')
+                    ->select('batch', DB::raw('count(*) as total'))
+                    ->orderByDesc('total')
+                    ->first()
+                    ->batch,
             ],
             'common_last_names' => AlumniList::groupBy('last_name')
                 ->select('last_name', DB::raw('count(*) as total'))

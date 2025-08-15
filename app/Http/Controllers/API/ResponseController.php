@@ -46,14 +46,50 @@ class ResponseController extends Controller
             'answers.*.choice_ids.*' => 'exists:choices,id',
         ]);
 
-        $survey = Survey::findOrFail($validated['survey_id']);
+        $survey = Survey::with('questions')->findOrFail($validated['survey_id']);
 
-        //check
+        // Check course restriction
         if ($survey->course_id && $survey->course_id !== Auth::user()->course_id) {
             return response()->json([
                 'message' => 'This survey is restricted to '.$survey->course->name.' students'
             ], 403);
         }
+
+        // Ensure all questions are answered
+        $allQuestionsAnswered = true;
+
+        foreach ($survey->questions as $question) {
+            $answer = collect($validated['answers'])->firstWhere('question_id', $question->id);
+
+            if (!$answer) {
+                $allQuestionsAnswered = false;
+                break;
+            }
+
+            if ($question->question_type === 'text' && empty(trim($answer['answer_text'] ?? ''))) {
+                $allQuestionsAnswered = false;
+                break;
+            }
+
+            if (in_array($question->question_type, ['radio', 'checkbox']) && empty($answer['choice_ids'])) {
+                $allQuestionsAnswered = false;
+                break;
+            }
+        }
+
+        if (!$allQuestionsAnswered) {
+            return response()->json([
+                'message' => 'You must answer all questions in the survey.'
+            ], 422);
+        }
+
+
+        if (!$allQuestionsAnswered) {
+            return response()->json([
+                'message' => 'You must answer all questions in the survey.'
+            ], 422);
+        }
+
 
         // Update or create the response (one per user per survey)
         $response = Response::updateOrCreate(

@@ -29,6 +29,87 @@ class SurveyController extends Controller
         });
     }
 
+    public function indexAlumni(Request $request)
+    {
+        $userId = Auth::id();
+
+        // Filters
+        $status = $request->input('status', 'all'); // all | responded | not_responded
+        $search = $request->input('search', null);
+        $perPage = $request->input('per_page', 10);
+
+        // Base query
+        $query = Survey::with('course')->latest();
+
+        // Search
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Get responded survey IDs for the user
+        $respondedSurveyIds = Response::where('user_id', $userId)
+            ->pluck('survey_id')
+            ->toArray();
+
+        // Status filtering
+        if ($status === 'responded') {
+            $query->whereIn('id', $respondedSurveyIds);
+        } elseif ($status === 'not_responded') {
+            $query->whereNotIn('id', $respondedSurveyIds);
+        }
+
+        // Paginate results
+        $surveys = $query->paginate($perPage);
+
+        // Append has_responded flag to each item
+        $surveys->getCollection()->transform(function ($survey) use ($respondedSurveyIds) {
+            $survey->has_responded = in_array($survey->id, $respondedSurveyIds);
+            return $survey;
+        });
+
+        return $surveys;
+    }
+
+
+    public function index2(Request $request)
+    {
+
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:255',
+        ]);
+
+        $userId = Auth::id();
+        $perPage = 10; // Items per page
+        
+        $query = Survey::with('course');
+
+        if ($search = $validated['search'] ?? null) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'LIKE', '%' . $search . '%')
+                ->orWhere('description', 'LIKE', '%' . $search . '%');
+            });
+        }
+
+        $surveys = $query->latest()
+            ->paginate($perPage)
+            ->through(function ($survey) use ($userId) {
+                $survey->has_responded = Response::where('survey_id', $survey->id)
+                    ->where('user_id', $userId)
+                    ->exists();
+                return $survey;
+            });
+
+        return response()->json([
+            'data' => $surveys->items(),
+            'next_page_url' => $surveys->nextPageUrl(),
+            'current_page' => $surveys->currentPage(),
+            'last_page' => $surveys->lastPage()
+        ]);
+    }
+
     public function show($id)
     {
         $survey = Survey::with('questions.choices')
@@ -41,6 +122,8 @@ class SurveyController extends Controller
         
         return $survey;
     }
+
+
 
     public function store(Request $request)
     {
@@ -190,6 +273,21 @@ class SurveyController extends Controller
             'question_id' => $questionId,
             'responses' => $responses->items(),
             'totalPages' => $responses->lastPage(),
+        ]);
+    }
+
+    public function checkResponse($surveyId)
+    {
+        $value = Survey::findOrFail($surveyId);
+        if (!$value) { // Another checking if ever
+            return response()->json(['message' => 'Survey not found.'], 404);
+        }
+
+        $hasResponded = Response::where('survey_id', $surveyId)->exists();
+
+        return response()->json([
+            'message' => 'Survey found.',
+            'has_responded' => $hasResponded
         ]);
     }
 
