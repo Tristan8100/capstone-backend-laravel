@@ -33,4 +33,10 @@ class PostCommentController extends Controller
             'parent_id' => $request->parent_id,
         ]);
     }
+
+    public function destroy($id)
+    {
+        PostComment::findOrFail($id)->delete();
+        return response()->json(['message' => 'Comment deleted.']);
+    }
 }

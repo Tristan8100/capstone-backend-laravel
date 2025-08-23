@@ -31,3 +31,5 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
 Route::middleware(['auth:user-api', 'agent'])->put('/posts/like/{id}', [PostLikeController::class, 'toggleLike']);
 
 Route::middleware(['auth:admin-api', 'agent'])->put('/posts/change-status/{id}', [PostController::class, 'updateStatus']);
+
+Route::middleware(['auth:admin-api', 'agent'])->delete('/posts/comments/{id}', [PostCommentController::class, 'destroy']);
