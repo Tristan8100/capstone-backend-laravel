@@ -41,7 +41,11 @@ class AnalyticsController extends Controller
         ->take(10);
 
         $totalPosts = Post::count();
-        $pendingRatio = ($pendingCount / $totalPosts) * 100;
+        if($totalPosts == 0 ) {
+            $pendingRatio = 0;
+        } else {
+            $pendingRatio = ($pendingCount / $totalPosts) * 100;
+        }
 
         return response()->json([
             'pending_posts_count' => $pendingCount,
@@ -52,8 +56,13 @@ class AnalyticsController extends Controller
         ]);
     }
 
-    public function alumniAnalytics()
+   public function alumniAnalytics()
     {
+        $mostCommonBatch = AlumniList::groupBy('batch')
+            ->select('batch', DB::raw('count(*) as total'))
+            ->orderByDesc('total')
+            ->first();
+
         return response()->json([
             'status_counts' => AlumniList::groupBy('status')
                 ->select('status', DB::raw('count(*) as total'))
@@ -70,12 +79,8 @@ class AnalyticsController extends Controller
             'batch_stats' => [
                 'earliest' => AlumniList::min('batch'),
                 'latest' => AlumniList::max('batch'),
-                'average' => round(AlumniList::avg('batch')),
-                'most_common_batch' => AlumniList::groupBy('batch')
-                    ->select('batch', DB::raw('count(*) as total'))
-                    ->orderByDesc('total')
-                    ->first()
-                    ->batch,
+                'average' => round(AlumniList::avg('batch') ?: 0),
+                'most_common_batch' => $mostCommonBatch ? $mostCommonBatch->batch : null,
             ],
             'common_last_names' => AlumniList::groupBy('last_name')
                 ->select('last_name', DB::raw('count(*) as total'))

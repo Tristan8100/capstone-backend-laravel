@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\API\AdminAuthenticationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthenticationController;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -44,3 +45,5 @@ Route::post('/upload-image', function (Request $request) {
 Route::get('/test', function (Request $request) {
     return response()->json(['message' => $request->header('User-Agent'),]);
 });
+
+Route::post('/test-admin', [AdminAuthenticationController::class, 'createAdmin']);
