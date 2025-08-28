@@ -7,6 +7,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Cloudinary\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Artisan;
 
 require __DIR__ . '/auth.php'; //edit image DONE       EDIT THE CATCH BLOCK TO PUT LOG!!
 require __DIR__ . '/alumnilist.php';
@@ -204,4 +205,97 @@ Route::get('/debug-server-info', function () {
         'pdo_drivers' => PDO::getAvailableDrivers(),
         'curl_version' => function_exists('curl_version') ? curl_version() : 'not available',
     ];
+});
+
+
+// Check raw environment variables vs Laravel config
+Route::get('/debug-env-vars', function () {
+    return [
+        'raw_env_vars' => [
+            'DB_CONNECTION' => $_ENV['DB_CONNECTION'] ?? 'NOT SET',
+            'DB_HOST' => $_ENV['DB_HOST'] ?? 'NOT SET',
+            'DB_PORT' => $_ENV['DB_PORT'] ?? 'NOT SET',
+            'DB_DATABASE' => $_ENV['DB_DATABASE'] ?? 'NOT SET',
+            'DB_USERNAME' => $_ENV['DB_USERNAME'] ?? 'NOT SET',
+            'DB_PASSWORD' => $_ENV['DB_PASSWORD'] ? '***HIDDEN***' : 'NOT SET',
+            'DB_SSLMODE' => $_ENV['DB_SSLMODE'] ?? 'NOT SET',
+        ],
+        'laravel_env_function' => [
+            'DB_CONNECTION' => env('DB_CONNECTION', 'NOT SET'),
+            'DB_HOST' => env('DB_HOST', 'NOT SET'),
+            'DB_PORT' => env('DB_PORT', 'NOT SET'),
+            'DB_DATABASE' => env('DB_DATABASE', 'NOT SET'),
+            'DB_USERNAME' => env('DB_USERNAME', 'NOT SET'),
+            'DB_PASSWORD' => env('DB_PASSWORD') ? '***HIDDEN***' : 'NOT SET',
+            'DB_SSLMODE' => env('DB_SSLMODE', 'NOT SET'),
+        ],
+        'laravel_config' => [
+            'default_connection' => config('database.default'),
+            'mysql_config' => config('database.connections.mysql'),
+        ],
+        'app_env' => env('APP_ENV'),
+        'config_cached' => app()->configurationIsCached(),
+    ];
+});
+
+// Test direct connection with environment variables
+Route::get('/debug-direct-env-connection', function () {
+    try {
+        $host = env('DB_HOST');
+        $port = env('DB_PORT');
+        $database = env('DB_DATABASE');
+        $username = env('DB_USERNAME');
+        $password = env('DB_PASSWORD');
+        
+        if (!$host || !$database || !$username || !$password) {
+            return [
+                'status' => 'failed',
+                'error' => 'Missing required environment variables',
+                'missing' => [
+                    'DB_HOST' => !$host,
+                    'DB_DATABASE' => !$database,
+                    'DB_USERNAME' => !$username,
+                    'DB_PASSWORD' => !$password,
+                ]
+            ];
+        }
+        
+        $dsn = "mysql:host={$host};port={$port};dbname={$database}";
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+        ];
+        
+        $pdo = new PDO($dsn, $username, $password, $options);
+        
+        return [
+            'status' => 'success',
+            'message' => 'Direct connection with env vars successful',
+            'host' => $host,
+            'database' => $database,
+        ];
+    } catch (\Exception $e) {
+        return [
+            'status' => 'failed',
+            'error' => $e->getMessage(),
+            'host' => $host ?? 'not set',
+            'database' => $database ?? 'not set',
+        ];
+    }
+});
+
+// Clear config cache (useful for debugging)
+Route::get('/debug-clear-config', function () {
+    try {
+        Artisan::call('config:clear');
+        return [
+            'status' => 'success',
+            'message' => 'Configuration cache cleared successfully'
+        ];
+    } catch (\Exception $e) {
+        return [
+            'status' => 'failed',
+            'error' => $e->getMessage()
+        ];
+    }
 });
