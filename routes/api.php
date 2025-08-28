@@ -6,6 +6,7 @@ use App\Http\Controllers\API\AuthenticationController;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Cloudinary\Cloudinary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 require __DIR__ . '/auth.php'; //edit image DONE       EDIT THE CATCH BLOCK TO PUT LOG!!
 require __DIR__ . '/alumnilist.php';
@@ -47,3 +48,35 @@ Route::get('/test', function (Request $request) {
 });
 
 Route::post('/test-admin', [AdminAuthenticationController::class, 'createAdmin']);
+
+Route::get('/debug', function () {
+    return 'Laravel is running!';
+});
+
+// Test environment variables
+Route::get('/debug-env', function () {
+    return [
+        'APP_ENV' => env('APP_ENV'),
+        'APP_DEBUG' => env('APP_DEBUG'),
+        'DB_CONNECTION' => env('DB_CONNECTION'),
+        'DB_HOST' => env('DB_HOST'),
+        'DB_DATABASE' => env('DB_DATABASE'),
+    ];
+});
+
+// Test DB connection
+Route::get('/debug-db', function () {
+    try {
+        DB::connection()->getPdo();
+        return 'DB connection works!';
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage()
+        ]);
+    }
+});
+
+// Force a crash to show full error (Laravel must boot)
+Route::get('/debug-error', function () {
+    throw new \Exception('This is a test exception to see the full error.');
+});
