@@ -7,6 +7,9 @@ use App\Models\User;
 use App\Models\Course;
 use App\Models\Institute;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Models\Admin;
 
 class AccountController extends Controller
 {
@@ -112,5 +115,22 @@ class AccountController extends Controller
         ];
 
         return response()->json($formattedAlumnus);
+    }
+
+    public function ForceChangePassword(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8',
+            'user_id' => 'required|exists:admins,id',
+        ]);
+
+        Admin::where('id', $request->user_id)->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+            'success' => true,
+        ]);
     }
 }
