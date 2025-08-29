@@ -2,23 +2,30 @@ FROM php:8.2-apache
 
 WORKDIR /var/www/html
 
-# Install dependencies with GD configured for JPEG + FreeType
+# Install dependencies with GD configured for JPEG + FreeType + WebP
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libwebp-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
     zip \
     unzip \
-    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype --with-webp \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
     && a2enmod rewrite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN echo "upload_max_filesize = 25M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 25M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_input_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
