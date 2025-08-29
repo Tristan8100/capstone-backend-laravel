@@ -2,16 +2,19 @@ FROM php:8.2-apache
 
 WORKDIR /var/www/html
 
-# Install dependencies
+# Install dependencies with GD configured for JPEG + FreeType
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
     zip \
     unzip \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
     && a2enmod rewrite \
     && apt-get clean \
@@ -44,5 +47,5 @@ RUN sed -i "s/Listen 80/Listen ${PORT:-80}/" /etc/apache2/ports.conf \
 
 EXPOSE ${PORT:-80}
 
-# FIXED: Remove route:cache since it's breaking your build
+# Start Laravel + Apache
 CMD sh -c "php artisan config:clear && php artisan config:cache && php artisan view:cache && apache2-foreground"
