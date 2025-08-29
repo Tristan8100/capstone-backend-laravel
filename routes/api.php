@@ -299,3 +299,21 @@ Route::get('/debug-clear-config', function () {
         ];
     }
 });
+
+Route::get('/debug-throttle', function () {
+    return [
+        'status' => 'success',
+        'message' => 'You have reached this endpoint successfully'
+    ];
+})->middleware('throttle:5,1');
+
+Route::get('/env-debug', function() {
+    return [
+        'CACHE_STORE' => env('CACHE_STORE'),
+        'DB_CACHE_TABLE' => env('DB_CACHE_TABLE'), 
+        'DB_CONNECTION' => env('DB_CONNECTION'),
+        'APP_ENV' => env('APP_ENV'),
+        'config_cache_default' => config('cache.default'),
+        'all_cache_stores' => array_keys(config('cache.stores'))
+    ];
+});

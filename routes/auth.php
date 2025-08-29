@@ -30,7 +30,7 @@ Route::post('/verify-otp', [VerifyEmailController::class, 'verifyOtp'])
 
 Route::post('/forgot-password', [ResetPasswordController::class, 'sendResetLink'])
     ->name('password.email')
-    ->middleware(['throttle:6,1']);
+    ->middleware(['throttle:1,1']);
 
 Route::post('/forgot-password-token', [ResetPasswordController::class, 'verifyOtp'])
     ->name('password.reset')
