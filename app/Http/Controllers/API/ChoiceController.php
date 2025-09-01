@@ -18,6 +18,34 @@ class ChoiceController extends Controller
         return Choice::create($validated);
     }
 
+    public function bulkStore(Request $request)
+    {
+        $validated = $request->validate([
+            'question_id' => 'required|exists:questions,id',
+            'choices' => 'required|array|min:1',
+            'choices.*' => 'required|string',
+        ]);
+
+        $questionId = $validated['question_id'];
+
+        $choicesData = [];
+        foreach ($validated['choices'] as $choiceText) {
+            $choicesData[] = [
+                'question_id' => $questionId,
+                'choice_text' => $choiceText,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        Choice::insert($choicesData);
+
+        return response()->json([
+            'message' => 'Choices added successfully',
+            'choices' => $choicesData
+        ], 201);
+    }
+
     public function update(Request $request, $id)
     {
         $choice = Choice::findOrFail($id);

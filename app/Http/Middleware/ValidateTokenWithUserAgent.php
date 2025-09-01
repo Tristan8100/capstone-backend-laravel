@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\TokenValidation;
 use Doctrine\Common\Lexer\Token;
+use Illuminate\Support\Facades\Log;
 
 class ValidateTokenWithUserAgent
 {
@@ -17,6 +18,8 @@ class ValidateTokenWithUserAgent
      */
     public function handle(Request $request, Closure $next): Response
     {
+
+        Log::info('ValidateTokenWithUserAgent Middleware: Checking token and User-Agent.');
 
         $isValid = TokenValidation::where('token_bearer', $request->bearerToken())
             ->where('user_agent', $request->header('User-Agent'))->exists();

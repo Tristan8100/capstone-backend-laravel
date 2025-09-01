@@ -8,6 +8,7 @@ use Cloudinary\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 require __DIR__ . '/auth.php'; //edit image DONE       EDIT THE CATCH BLOCK TO PUT LOG!!
 require __DIR__ . '/alumnilist.php';
@@ -307,13 +308,25 @@ Route::get('/debug-throttle', function () {
     ];
 })->middleware('throttle:5,1');
 
-Route::get('/env-debug', function() {
+Route::get('/env-debug', function(Request $request) {
+    Log::info('DONWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW');
     return [
         'CACHE_STORE' => env('CACHE_STORE'),
         'DB_CACHE_TABLE' => env('DB_CACHE_TABLE'), 
         'DB_CONNECTION' => env('DB_CONNECTION'),
         'APP_ENV' => env('APP_ENV'),
         'config_cache_default' => config('cache.default'),
-        'all_cache_stores' => array_keys(config('cache.stores'))
+        'all_cache_stores' => array_keys(config('cache.stores')),
+        'frontend_url' => env('FRONTEND_URL'),
+        'cookie' => $request->cookie('auth_token'),
     ];
+});
+
+
+Route::middleware('ctb')->get('/trytry', function (Request $request) {
+    return response()->json([
+        'response_code' => 200,
+        'status' => 'success',
+        'message' => 'CBT Middleware: This is a test message from CBT middleware.',
+    ], 200);
 });

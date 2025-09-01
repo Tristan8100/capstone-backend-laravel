@@ -19,6 +19,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\File;
 use App\Models\TokenValidation;
 use Doctrine\Common\Lexer\Token;
+use Illuminate\Support\Env;
 
 class AuthenticationController extends Controller
 {
@@ -228,6 +229,19 @@ class AuthenticationController extends Controller
                 'user_agent' => $request->header('User-Agent'),
             ]);
 
+            $cookie = cookie(
+                'auth_token',               // cookie name
+                $token,                     // cookie value
+                60 * 24,                    // minutes (1 day)
+                '/',                        // path
+                null,                       // domain (null = current domain)
+                app()->environment('production'), // Secure only in production
+                true,                       // HttpOnly
+                false,                      // Raw
+                app()->environment('production') ? 'None' : 'Lax' // SameSite
+            );
+
+
             return response()->json([
                 'response_code' => 200,
                 'status'        => 'success',
@@ -244,7 +258,8 @@ class AuthenticationController extends Controller
                     'qr_code_path' => $user->qr_code_path, // include QR code path
                     'profile_path' => $user->profile_path,
                 ],
-            ]);
+            ])->withCookie($cookie);
+            
         } catch (ValidationException $e) {
             return response()->json([
                 'response_code' => 422,

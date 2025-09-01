@@ -32,6 +32,7 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
 
     // Choices
     Route::post('/choices', [ChoiceController::class, 'store']);
+    Route::post('/choices/bulk', [ChoiceController::class, 'bulkStore']); // New bulk store route
     Route::put('/choices/{id}', [ChoiceController::class, 'update']);
     Route::delete('/choices/{id}', [ChoiceController::class, 'destroy']);
 

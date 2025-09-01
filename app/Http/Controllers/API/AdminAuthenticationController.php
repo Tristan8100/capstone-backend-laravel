@@ -41,6 +41,18 @@ class AdminAuthenticationController extends Controller
             'user_agent' => $request->header('User-Agent'),
         ]);
 
+        $cookie = cookie(
+            'auth_token',               // cookie name
+            $token,                     // cookie value
+            60 * 24,                    // minutes (1 day)
+            '/',                        // path
+            null,                       // domain (null = current domain)
+            app()->environment('production'), // Secure only in production
+            true,                       // HttpOnly
+            false,                      // Raw
+            app()->environment('production') ? 'None' : 'Lax' // SameSite
+        );
+
         return response()->json([
             'response_code' => 200,
             'status' => 'success',
@@ -52,7 +64,7 @@ class AdminAuthenticationController extends Controller
                 'name' => $admin->name,
                 'email' => $admin->email,
             ]
-        ]);
+        ])->withCookie($cookie);
     }
 
     public function changePasswordAdmin(Request $request)
