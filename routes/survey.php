@@ -8,11 +8,11 @@ use App\Http\Controllers\API\ResponseController;
 Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Surveys
     Route::get('/surveys', [SurveyController::class, 'index']);
-    Route::get('/surveys-admin', [SurveyController::class, 'index2']); // Admin view
-    Route::get('/surveys-alumni', [SurveyController::class, 'indexAlumni']);// Alumni view
+    Route::get('/surveys-admin', [SurveyController::class, 'index2']); // Admin view //PUT STATUS
+    Route::get('/surveys-alumni', [SurveyController::class, 'indexAlumni']);// Alumni view // PUT STATUS //DONE not tested
     Route::get('/surveys/{id}', [SurveyController::class, 'show']);
     Route::post('/surveys', [SurveyController::class, 'store']); // modify for course (not yet implemented)
-    Route::put('/surveys/{id}', [SurveyController::class, 'update']); // modify for course (not yet implemented)
+    Route::put('/surveys/{id}', [SurveyController::class, 'update']); // PUT STATUS //DONE not tested
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
     Route::get('/surveys/check-response/{id}', [SurveyController::class, 'checkResponse']);

@@ -12,6 +12,7 @@ class Survey extends Model
         'title',
         'description',
         'course_id',
+        'status',
     ];
 
     public function questions()

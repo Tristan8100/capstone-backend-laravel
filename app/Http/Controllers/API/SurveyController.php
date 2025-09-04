@@ -39,7 +39,9 @@ class SurveyController extends Controller
         $perPage = $request->input('per_page', 10);
 
         // Base query
-        $query = Survey::with('course')->latest();
+        $query = Survey::with('course')
+        ->where('status', 'active')
+        ->latest();
 
         // Search
         if (!empty($search)) {
@@ -133,6 +135,8 @@ class SurveyController extends Controller
             'course_id' => 'nullable|string|exists:courses,id'// Added new
         ]);
 
+        $validated['status'] = 'pending';
+
         return Survey::create($validated);
     }
 
@@ -141,7 +145,8 @@ class SurveyController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|string',
             'description' => 'nullable|string',
-            'course_id' => 'nullable|string|exists:courses,id' // Added new
+            'status' => 'sometimes|in:pending,active',
+            //'course_id' => 'nullable|string|exists:courses,id' // Added new
         ]);
 
         $survey = Survey::findOrFail($id);
