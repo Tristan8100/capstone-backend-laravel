@@ -246,7 +246,7 @@ class AuthenticationController extends Controller
                 'response_code' => 200,
                 'status'        => 'success',
                 'message'       => 'Login successful',
-                'token'       => $token,
+                //'token'       => $token,
                 'token_type'  => 'Bearer',
                 'user_info'   => [
                     'id'    => $user->id,
