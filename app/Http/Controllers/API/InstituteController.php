@@ -43,6 +43,11 @@ class InstituteController extends Controller
         ]);
     }
 
+    public function general()
+    {
+        return Institute::all();
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

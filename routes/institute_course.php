@@ -20,3 +20,4 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
 });
 
 Route::get('/get-courses-general', [CourseController::class, 'index2']);
+Route::get('/get-institutes-general', [InstituteController::class, 'general']);

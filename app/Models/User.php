@@ -108,4 +108,10 @@ class User extends Authenticatable
         return $this->hasMany(Response::class);
     }
 
+    // CAREER TRACKING
+    public function careers()
+    {
+        return $this->hasMany(Career::class);
+    }
+
 }
