@@ -89,141 +89,176 @@ class JobFitAnalysisController extends Controller
     {
         $courseId = $request->query('course_id');
         $instituteId = $request->query('institute_id');
+        $year = $request->query('year');
+        $referenceMonthDay = $request->query('reference_date', '06-01');
+
+        // Helper: flatten, trim, lowercase, count
+        $normalizeAndCount = function ($items) {
+            return collect($items)
+                ->flatMap(fn($value) => is_string($value) ? array_map('trim', explode(',', $value)) : (array)$value)
+                ->map(fn($item) => strtolower($item))
+                ->filter(fn($item) => !empty($item))
+                ->countBy()
+                ->sortDesc()
+                ->toArray();
+        };
 
         // Base query
-        $query = Career::with(['user.course.institute']);
+        $query = Career::query()->with(['user.course.institute']);
+        if ($courseId) $query->whereHas('user.course', fn($q) => $q->where('id', $courseId));
+        elseif ($instituteId) $query->whereHas('user.course', fn($q) => $q->where('institute_id', $instituteId));
+        if ($year) $query->whereHas('user', fn($q) => $q->where('batch', $year));
 
-        // Apply filters
-        if ($courseId) {
-            $query->whereHas('user.course', fn($q) => $q->where('id', $courseId));
-        } elseif ($instituteId) {
-            $query->whereHas('user.course', fn($q) => $q->where('institute_id', $instituteId));
-        }
+        // Counts
+        $total = (clone $query)->count();
+        $relatedCount = (clone $query)->where('fit_category', 'Related')->count();
+        $notRelatedCount = $total - $relatedCount;
 
-        $careers = $query->get();
-
-        $total = $careers->count();
-        $relatedCount = $careers->where('fit_category', 'Related')->count();
-        $notRelatedCount = $careers->where('fit_category', 'Not Related')->count();
-
-        // 1. Fit distribution
         $fit_distribution = [
             'related' => $total ? round(($relatedCount / $total) * 100, 2) : 0,
             'not_related' => $total ? round(($notRelatedCount / $total) * 100, 2) : 0,
         ];
 
-        // 2. Average recommended jobs
-        $avgRecommendedJobs = $careers->pluck('recommended_jobs')
-            ->map(fn($jobs) => is_array($jobs) ? count($jobs) : 0)
-            ->avg();
+        $avgRecommendedJobs = (clone $query)
+            ->selectRaw("AVG(JSON_LENGTH(recommended_jobs)) as avg_jobs")
+            ->value('avg_jobs');
 
-        // 3. Effectiveness score (weighted)
         $effectiveness_score = $fit_distribution['related'] * 0.7 + ($avgRecommendedJobs / 10) * 0.3;
 
-        // 4. Skills gap analysis
-        $notRelatedSkills = $careers->where('fit_category', 'Not Related')
-            ->pluck('skills_used')
-            ->flatten()
-            ->countBy()
-            ->sortDesc()
-            ->toArray();
+        // Skills, roles, titles, companies
+        $notRelatedSkills = array_slice($normalizeAndCount((clone $query)->where('fit_category', 'Not Related')->pluck('skills_used')), 0, 20);
+        $relatedSkills = array_slice($normalizeAndCount((clone $query)->where('fit_category', 'Related')->pluck('skills_used')), 0, 20);
+        $recommendedRoles = array_slice($normalizeAndCount((clone $query)->where('fit_category', 'Related')->pluck('recommended_jobs')), 0, 10);
+        $topTitles = array_slice($normalizeAndCount((clone $query)->pluck('title')), 0, 10);
+        $topCompanies = array_slice($normalizeAndCount((clone $query)->pluck('company')), 0, 10);
 
-        // 5. Top recommended roles
-        $recommendedRoles = $careers->where('fit_category', 'Related')
-            ->pluck('recommended_jobs')
-            ->flatten()
-            ->countBy()
-            ->sortDesc()
-            ->take(10)
-            ->toArray();
-
-        // 6. Average time to first job per batch
-        $avgTimeToFirstJob = User::whereHas('careers')
-            ->with(['careers' => fn($q) => $q->orderBy('start_date')])
-            ->get()
-            ->map(function ($user) {
-                if (!$user->batch || $user->careers->isEmpty()) return null;
-
-                $firstCareer = $user->careers->first();
-
-                if (!$firstCareer->start_date) return null;
-
-                // Assume graduation at June 1 of the batch year
-                $gradDate = Carbon::create($user->batch, 6, 1);
-                $firstJobDate = Carbon::parse($firstCareer->start_date);
-
-                $months = max(0, $firstJobDate->diffInMonths($gradDate, false));
-
-                return [
-                    'batch' => $user->batch,
-                    'months' => $months,
-                ];
-            })
-            ->filter() // remove nulls
-            ->groupBy('batch')
-            ->map(function ($items) {
-                return round(collect($items)->avg('months'), 1);
-            })
-            ->toArray();
-
-        $avgTimeToFirstJob2 = User::whereHas('careers')
-        ->with(['careers' => fn($q) => $q->orderBy('start_date')])
-        ->get()
-        ->map(function ($user) {
-            if (!$user->batch || $user->careers->isEmpty()) return null;
-
-            $firstCareer = $user->careers->first();
-            if (!$firstCareer->start_date) return null;
-
-            $batchYear = (int)$user->batch;
-            $jobYear = (int)Carbon::parse($firstCareer->start_date)->format('Y');
-
-            $yearsToJob = max(0, $jobYear - $batchYear);
-
-            return [
-                'batch' => $batchYear,
-                'years' => $yearsToJob,
-            ];
-        })
-        ->filter()
-        ->groupBy('batch')
-        ->map(fn($items) => round(collect($items)->avg('years'), 1))
+        // Time to first job
+        $avgTimeToFirstJob = (clone $query)
+        ->join('users as u', 'careers.user_id', '=', 'u.id')
+        ->selectRaw('u.batch, 
+            ROUND(AVG(TIMESTAMPDIFF(
+                MONTH, 
+                STR_TO_DATE(CONCAT(u.batch, "-", ?), "%Y-%m-%d"), 
+                careers.start_date
+            )), 1) as avg_months', [$referenceMonthDay])
+        ->when($year, fn($q) => $q->where('u.batch', $year))
+        ->whereNotNull('u.batch')
+        ->whereNotNull('careers.start_date')
+        ->groupBy('u.batch')
+        ->pluck('avg_months', 'u.batch')
         ->toArray();
 
+        $avgTimeToFirstJob2 = collect($avgTimeToFirstJob)->map(fn($months) => round($months / 12, 1))->toArray();
 
-        // 7. Per course breakdown
-        $perCourse = $careers->groupBy(fn($career) => $career->user?->course_id)->map(function ($group) {
+        // ======================
+        // SIZE COMMENT HELPER
+        // ======================
+        $sizeComment = function($count) {
+            if ($count < 10) return "Data is limited; interpret insights cautiously. ";
+            if ($count < 50) return "Dataset is small; interpret insights cautiously. ";
+            if ($count < 200) return "Dataset is moderate; insights reasonably reliable. ";
+            return "Dataset is large; insights are strong. ";
+        };
+
+        // ======================
+        // OVERALL ANALYSIS
+        // ======================
+        $analysis_fit = $sizeComment($total); // start with size warning
+
+        if ($fit_distribution['related'] >= 60) {
+            $analysis_fit .= "Most graduates ({$fit_distribution['related']}%) are in relevant fields; the program is performing well and can be retained with minor improvements.";
+        } elseif ($fit_distribution['related'] >= 40) {
+            $analysis_fit .= "Graduates ({$fit_distribution['related']}%) are moderately aligned; consider reviewing program content or enhancing skill alignment.";
+        } else {
+            $analysis_fit .= "Many graduates ({$fit_distribution['related']}%) are in unrelated fields; review the program and consider restructuring to improve relevance.";
+        }
+
+
+        $analysis_skills = count($notRelatedSkills)
+            ? $sizeComment($total) . "The most common skills gaps are: " . implode(', ', array_keys($notRelatedSkills)) . "."
+            : $sizeComment($total) . "Not enough skills data to generate a detailed analysis.";
+
+        $analysis_related_skills = count($relatedSkills)
+            ? $sizeComment($total) . "Top utilized skills among graduates are: " . implode(', ', array_keys($relatedSkills)) . "."
+            : $sizeComment($total) . "Not enough skills data to generate a detailed analysis.";
+
+        if (count($recommendedRoles)) {
+            $topRoles = array_keys($recommendedRoles);
+            $last = array_pop($topRoles);
+            $roleList = count($topRoles) ? implode(', ', $topRoles) . ' and ' . $last : $last;
+            $analysis_recommended_roles = $sizeComment($total) . "The top recommended roles for graduates include: {$roleList}.";
+        } else {
+            $analysis_recommended_roles = $sizeComment($total) . "No recommended roles data available.";
+        }
+
+        if(count($topTitles)) {
+            $topTitlesList = implode(', ', array_keys($topTitles));
+            $analysis_top_titles = $sizeComment($total) . "Most graduates work as: {$topTitlesList}.";
+        } else {
+            $analysis_top_titles = $sizeComment($total) . "No title data available.";
+        }
+
+        if(count($topCompanies)) {
+            $topCompaniesList = implode(', ', array_keys($topCompanies));
+            $analysis_top_companies = $sizeComment($total) . "Most graduates are employed at: {$topCompaniesList}.";
+        } else {
+            $analysis_top_companies = $sizeComment($total) . "No company data available.";
+        }
+
+        $analysis_time_to_job = [];
+        foreach ($avgTimeToFirstJob2 as $batch => $years) {
+            if ($years < 1) $analysis_time_to_job[$batch] = $sizeComment($total) . "Graduates of batch {$batch} quickly secured their first job (<1 year).";
+            elseif ($years <= 2) $analysis_time_to_job[$batch] = $sizeComment($total) . "Graduates of batch {$batch} took moderate time (~{$years} years) to get their first job.";
+            else $analysis_time_to_job[$batch] = $sizeComment($total) . "Graduates of batch {$batch} took longer (>2 years) to secure their first job.";
+        }
+
+        // ======================
+        // PER COURSE ANALYSIS
+        // ======================
+        $perCourse = (clone $query)->get()->groupBy(fn($c) => $c->user?->course_id)->map(function ($group) use ($sizeComment) {
             $total = $group->count();
             $relatedCount = $group->where('fit_category', 'Related')->count();
-            $avgRecommendedJobs = $group->pluck('recommended_jobs')
-                ->map(fn($jobs) => is_array($jobs) ? count($jobs) : 0)
-                ->avg();
+            $avgRecommendedJobs = $group->pluck('recommended_jobs')->map(fn($jobs) => is_array($jobs) ? count($jobs) : 0)->avg();
+            $fitPercent = $total ? round(($relatedCount / $total) * 100, 2) : 0;
+
+            $insight = $fitPercent >= 70 ? "Most graduates are well-aligned."
+                : ($fitPercent >= 40 ? "Moderate alignment." : "Low alignment.");
+            $insight = $sizeComment($total) . $insight;
 
             return [
                 'course_name' => $group->first()->user->course?->name ?? 'N/A',
                 'fit_distribution' => [
-                    'related' => $total ? round(($relatedCount / $total) * 100, 2) : 0,
+                    'related' => $fitPercent,
                     'not_related' => $total ? round(($total - $relatedCount) / $total * 100, 2) : 0,
                 ],
                 'effectiveness_score' => $total ? round($relatedCount / $total * 70 + ($avgRecommendedJobs / 10) * 30, 2) : 0,
+                'insight_sentence' => "The {$group->first()->user->course?->name} course has {$fitPercent}% of graduates in relevant fields.",
+                'analysis_fit' => $insight
             ];
         });
 
-        // 8. Per institute breakdown
-        $perInstitute = $careers->groupBy(fn($career) => $career->user?->course?->institute_id)->map(function ($group) {
+        // ======================
+        // PER INSTITUTE ANALYSIS
+        // ======================
+        $perInstitute = (clone $query)->get()->groupBy(fn($c) => $c->user?->course?->institute_id)->map(function ($group) use ($sizeComment) {
             $total = $group->count();
             $relatedCount = $group->where('fit_category', 'Related')->count();
-            $avgRecommendedJobs = $group->pluck('recommended_jobs')
-                ->map(fn($jobs) => is_array($jobs) ? count($jobs) : 0)
-                ->avg();
+            $avgRecommendedJobs = $group->pluck('recommended_jobs')->map(fn($jobs) => is_array($jobs) ? count($jobs) : 0)->avg();
+            $fitPercent = $total ? round(($relatedCount / $total) * 100, 2) : 0;
+
+            $insight = $fitPercent >= 70 ? "Most graduates are well-aligned."
+                : ($fitPercent >= 40 ? "Moderate alignment." : "Low alignment.");
+            $insight = $sizeComment($total) . $insight;
 
             return [
                 'institute_name' => $group->first()->user->course->institute?->name ?? 'N/A',
                 'fit_distribution' => [
-                    'related' => $total ? round(($relatedCount / $total) * 100, 2) : 0,
+                    'related' => $fitPercent,
                     'not_related' => $total ? round(($total - $relatedCount) / $total * 100, 2) : 0,
                 ],
                 'effectiveness_score' => $total ? round($relatedCount / $total * 70 + ($avgRecommendedJobs / 10) * 30, 2) : 0,
+                'insight_sentence' => "The {$group->first()->user->course->institute?->name} institute has {$fitPercent}% of graduates in relevant fields.",
+                'analysis_fit' => $insight
             ];
         });
 
@@ -233,13 +268,27 @@ class JobFitAnalysisController extends Controller
                 'fit_distribution' => $fit_distribution,
                 'effectiveness_score' => round($effectiveness_score, 2),
                 'skills_gap' => $notRelatedSkills,
+                'related_skills' => $relatedSkills,
                 'top_recommended_roles' => $recommendedRoles,
+                'top_titles' => $topTitles,
+                'top_companies' => $topCompanies,
                 'avg_time_to_first_job_months' => $avgTimeToFirstJob,
                 'avg_time_to_first_job_years' => $avgTimeToFirstJob2,
+                // Analysis fields
+                'analysis_fit_distribution' => $analysis_fit,
+                'analysis_skills_gap' => $analysis_skills,
+                'analysis_related_skills' => $analysis_related_skills,
+                'analysis_top_recommended_roles' => $analysis_recommended_roles,
+                'analysis_top_titles' => $analysis_top_titles,
+                'analysis_top_companies' => $analysis_top_companies,
+                'analysis_time_to_first_job' => $analysis_time_to_job,
             ],
             'per_course' => $perCourse,
             'per_institute' => $perInstitute,
         ]);
     }
+
+
+
 
 }
