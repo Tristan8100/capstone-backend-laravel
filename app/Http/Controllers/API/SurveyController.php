@@ -9,6 +9,9 @@ use App\Models\AnswerChoice;
 use App\Models\Answer;
 use App\Models\Response;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Course;
+use App\Models\Institute;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\DB;
 class SurveyController extends Controller
@@ -30,62 +33,79 @@ class SurveyController extends Controller
     }
 
     public function indexAlumni(Request $request)
-    {
-        $userId = Auth::id();
+{
+    $user = Auth::user(); // get the ALUMNI
 
-        // Filters
-        $status = $request->input('status', 'all'); // all | responded | not_responded
-        $search = $request->input('search', null);
-        $perPage = $request->input('per_page', 10);
+    // Filters
+    $status = $request->input('status', 'all'); // all | responded | not_responded
+    $search = $request->input('search', null);
+    $perPage = $request->input('per_page', 10);
 
-        // Base query
-        $query = Survey::with('course')
-        ->where('status', 'active')
+    // Base query
+    $query = Survey::with('course')
+        ->where('status', 'active') // only active surveys
         ->latest();
 
-        // Search
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        // Get responded survey IDs for the user
-        $respondedSurveyIds = Response::where('user_id', $userId)
-            ->pluck('survey_id')
-            ->toArray();
-
-        // Status filtering
-        if ($status === 'responded') {
-            $query->whereIn('id', $respondedSurveyIds);
-        } elseif ($status === 'not_responded') {
-            $query->whereNotIn('id', $respondedSurveyIds);
-        }
-
-        // Paginate results
-        $surveys = $query->paginate($perPage);
-
-        // Append has_responded flag to each item
-        $surveys->getCollection()->transform(function ($survey) use ($respondedSurveyIds) {
-            $survey->has_responded = in_array($survey->id, $respondedSurveyIds);
-            return $survey;
+    // Search
+    if (!empty($search)) {
+        $query->where(function ($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%");
         });
-
-        return $surveys;
     }
+
+    // Get responded survey IDs for this user
+    $respondedSurveyIds = Response::where('user_id', $user->id)
+        ->pluck('survey_id')
+        ->toArray();
+
+    // Status filter
+    if ($status === 'responded') {
+        $query->whereIn('id', $respondedSurveyIds);
+    } elseif ($status === 'not_responded') {
+        $query->whereNotIn('id', $respondedSurveyIds);
+    }
+
+    // Paginate results
+    $surveys = $query->paginate($perPage);
+
+    // Apply limits and append has_responded flag
+    $surveys->setCollection(
+        $surveys->getCollection()->filter(function ($survey) use ($respondedSurveyIds, $user) {
+            $survey->has_responded = in_array($survey->id, $respondedSurveyIds);
+
+            // Decode limits
+            $limits = is_array($survey->limits) ? $survey->limits : json_decode($survey->limits, true) ?? [];
+            $allowedCourses = $limits['courses'] ?? [];
+            $allowedInstitutes = $limits['institutes'] ?? [];
+
+            $userCourseId = $user->course?->id;
+            $userInstituteId = $user->course?->institute_id;
+
+            // No limits or empty limits → visible to all
+            if (empty($allowedCourses) && empty($allowedInstitutes)) {
+                return true;
+            }
+
+            // Only include if user's course or institute matches
+            return in_array($userCourseId, $allowedCourses)
+                || in_array($userInstituteId, $allowedInstitutes);
+        })->values()
+    );
+
+    return $surveys;
+}
+
+
 
 
     public function index2(Request $request)
     {
-
         $validated = $request->validate([
             'search' => 'nullable|string|max:255',
         ]);
 
-        $userId = Auth::id();
         $perPage = 10; // Items per page
-        
         $query = Survey::with('course');
 
         if ($search = $validated['search'] ?? null) {
@@ -97,10 +117,23 @@ class SurveyController extends Controller
 
         $surveys = $query->latest()
             ->paginate($perPage)
-            ->through(function ($survey) use ($userId) {
-                $survey->has_responded = Response::where('survey_id', $survey->id)
-                    ->where('user_id', $userId)
-                    ->exists();
+            ->through(function ($survey) {
+                // Map limits JSON to readable names
+                $limits = $survey->limits ?? [];
+
+                $courses = collect($limits['courses'] ?? [])
+                    ->map(fn($courseId) => Course::find($courseId)?->name ?? $courseId)
+                    ->toArray();
+
+                $institutes = collect($limits['institutes'] ?? [])
+                    ->map(fn($instId) => \App\Models\Institute::find($instId)?->name ?? $instId)
+                    ->toArray();
+
+                $survey->limits = [
+                    'courses' => $courses,
+                    'institutes' => $institutes,
+                ];
+
                 return $survey;
             });
 
@@ -108,7 +141,7 @@ class SurveyController extends Controller
             'data' => $surveys->items(),
             'next_page_url' => $surveys->nextPageUrl(),
             'current_page' => $surveys->currentPage(),
-            'last_page' => $surveys->lastPage()
+            'last_page' => $surveys->lastPage(),
         ]);
     }
 
@@ -132,12 +165,25 @@ class SurveyController extends Controller
         $validated = $request->validate([
             'title' => 'required|string',
             'description' => 'nullable|string',
-            'course_id' => 'nullable|string|exists:courses,id'// Added new
+            'course_id' => 'nullable|string|exists:courses,id', // legacy support
+            'limits' => 'nullable|array',
+            'limits.courses' => 'nullable|array',
+            'limits.courses.*' => 'string|exists:courses,id',
+            'limits.institutes' => 'nullable|array',
+            'limits.institutes.*' => 'string|exists:institutes,id',
         ]);
 
         $validated['status'] = 'pending';
 
-        return Survey::create($validated);
+        $survey = Survey::create($validated);
+
+        // TRIVIA: Need to map the same response in get to store in typescript so it auto changes
+        $survey->limits = [
+            'courses' => Course::whereIn('id', $validated['limits']['courses'] ?? [])->pluck('name')->toArray(),
+            'institutes' => Institute::whereIn('id', $validated['limits']['institutes'] ?? [])->pluck('name')->toArray(),
+        ];
+
+        return $survey;
     }
 
     public function update(Request $request, $id)

@@ -46,16 +46,23 @@ class ResponseController extends Controller
             'answers.*.choice_ids.*' => 'exists:choices,id',
         ]);
 
+        $user = Auth::user();
         $survey = Survey::with('questions')->findOrFail($validated['survey_id']);
 
-        // Check course restriction
-        if ($survey->course_id && $survey->course_id !== Auth::user()->course_id) {
+        // --- Check course and institute restrictions via limits JSON ---
+        $userCourseId = $user->course_id;
+        $userInstituteId = $user->course?->institute_id;
+
+        $allowedCourses = $survey->limits['courses'] ?? [];
+        $allowedInstitutes = $survey->limits['institutes'] ?? [];
+
+        if ($survey->limits && !in_array($userCourseId, $allowedCourses) && !in_array($userInstituteId, $allowedInstitutes)) {
             return response()->json([
-                'message' => 'This survey is restricted to '.$survey->course->name.' students'
+                'message' => 'You are not allowed to answer this survey.'
             ], 403);
         }
 
-        // Ensure all questions are answered
+        // --- Ensure all questions are answered ---
         $allQuestionsAnswered = true;
 
         foreach ($survey->questions as $question) {
@@ -83,19 +90,11 @@ class ResponseController extends Controller
             ], 422);
         }
 
-
-        if (!$allQuestionsAnswered) {
-            return response()->json([
-                'message' => 'You must answer all questions in the survey.'
-            ], 422);
-        }
-
-
-        // Update or create the response (one per user per survey)
+        // --- Update or create the response (one per user per survey) ---
         $response = Response::updateOrCreate(
             [
                 'survey_id' => $validated['survey_id'],
-                'user_id' => Auth::id(),
+                'user_id' => $user->id,
             ],
             []
         );
@@ -126,6 +125,7 @@ class ResponseController extends Controller
 
         return response()->json(['message' => 'Survey submitted successfully.']);
     }
+
 
     // allow delete (for admin or user re-submit logic)
     public function destroy($id)
