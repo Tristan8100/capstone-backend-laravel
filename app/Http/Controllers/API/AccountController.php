@@ -52,6 +52,7 @@ class AccountController extends Controller
             return [
                 'id' => $alumnus->id,
                 'firstName' => $alumnus->first_name,
+                'middleName' => $alumnus->middle_name,
                 'lastName' => $alumnus->last_name,
                 'email' => $alumnus->email,
                 'batch' => $alumnus->batch,
@@ -132,5 +133,25 @@ class AccountController extends Controller
             'message' => 'Password changed successfully.',
             'success' => true,
         ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        // Validation rules
+        $validated = $request->validate([
+            'first_name'   => ['nullable', 'string', 'max:255'],
+            'middle_name'  => ['nullable', 'string', 'max:255'],
+            'last_name'    => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Update user
+        $user->update($validated);
+
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user' => $user,
+        ], 200);
     }
 }

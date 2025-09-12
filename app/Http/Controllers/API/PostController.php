@@ -262,34 +262,51 @@ class PostController extends Controller
 
     public function getUserWithPosts($userId)
     {
-        // 1. Get user profile data
         $user = User::select([
-            'id',
-            'first_name',
-            'middle_name', 
-            'last_name',
-            'profile_path',
-            'email',
-            'batch',
-            'created_at',
-            'course_id',
-        ])
-        ->withCount([
-            'posts as total_posts',
-            'postLikes as total_likes_given', // posts this user has liked
-            'posts as total_likes_received' => function($query) {
-                $query->select(DB::raw('sum(
-                    (select count(*) from post_likes where post_likes.post_id = posts.id)
-                )'));
-            }
-        ])
-        ->with(['course:id,name'])
-        ->findOrFail($userId);
+                'id',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'profile_path',
+                'email',
+                'batch',
+                'created_at',
+                'course_id',
+            ])
+            ->withCount([
+                'posts as total_posts',
+                'postLikes as total_likes_given', // posts this user has liked
+                'posts as total_likes_received' => function($query) {
+                    $query->select(DB::raw('sum(
+                        (select count(*) from post_likes where post_likes.post_id = posts.id)
+                    )'));
+                }
+            ])
+            ->with([
+                'course:id,name',
+                'careers' => function ($query) {
+                    $query->select([
+                        'id',
+                        'user_id',
+                        'title',
+                        'company',
+                        'description',
+                        'skills_used',
+                        'fit_category',
+                        'start_date',
+                        'end_date',
+                        'created_at',
+                        'updated_at',
+                    ]);
+                }
+            ])
+            ->findOrFail($userId);
 
         return [
             'user' => $user,
         ];
     }
+
 
     public function show($id)
     {
