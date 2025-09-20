@@ -199,6 +199,45 @@ class CareerController extends Controller
         ], 200);
     }
 
+    public function indexPaginated()
+    {
+        $careers = Career::where('user_id', Auth::id())
+                        ->orderBy('start_date', 'desc')
+                        ->paginate(5); // Add pagination with 10 items per page
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $careers->items(), // Get just the data items
+            'pagination' => [
+                'current_page' => $careers->currentPage(),
+                'last_page' => $careers->lastPage(),
+                'per_page' => $careers->perPage(),
+                'total' => $careers->total(),
+                'has_more' => $careers->hasMorePages()
+            ]
+        ], 200);
+    }
+
+    public function indexPaginatedbyId($id)
+    {
+        $careers = Career::where('user_id', $id)
+                        ->orderBy('start_date', 'desc')
+                        ->paginate(5); // Add pagination with 10 items per page
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $careers->items(), // Get just the data items
+            'pagination' => [
+                'current_page' => $careers->currentPage(),
+                'last_page' => $careers->lastPage(),
+                'per_page' => $careers->perPage(),
+                'total' => $careers->total(),
+                'has_more' => $careers->hasMorePages(),
+                'count' => $careers->count()
+            ]
+        ], 200);
+    }
+
     // Show a single career record of the authenticated user
     public function show($career_id)
     {

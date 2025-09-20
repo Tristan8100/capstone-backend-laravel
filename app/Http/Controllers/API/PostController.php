@@ -282,24 +282,6 @@ class PostController extends Controller
                     )'));
                 }
             ])
-            ->with([
-                'course:id,name',
-                'careers' => function ($query) {
-                    $query->select([
-                        'id',
-                        'user_id',
-                        'title',
-                        'company',
-                        'description',
-                        'skills_used',
-                        'fit_category',
-                        'start_date',
-                        'end_date',
-                        'created_at',
-                        'updated_at',
-                    ]);
-                }
-            ])
             ->findOrFail($userId);
 
         return [
