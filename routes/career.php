@@ -10,6 +10,10 @@ Route::middleware(['auth:user-api', 'agent'])->group(function () {
     Route::delete('/career/{id}', [CareerController::class, 'delete']);
     Route::get('/career', [CareerController::class, 'index']);
     Route::get('/career-paginated', [CareerController::class, 'indexPaginated']);
-    Route::get('/career-paginated/{id}', [CareerController::class, 'indexPaginatedbyId']);
+    
     Route::get('/career/{id}', [CareerController::class, 'show']);
+});
+
+Route::middleware(['auth:sanctum', 'agent'])->group(function () {
+    Route::get('/career-paginated/{id}', [CareerController::class, 'indexPaginatedbyId']);
 });
