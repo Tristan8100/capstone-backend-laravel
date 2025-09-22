@@ -96,13 +96,30 @@ class JobFitAnalysisController extends Controller
     $instituteName = null;
 
     if ($courseId) {
-        $courseName = Course::where('id', $courseId)->value('name'); // or whatever column
-    }
-    if ($instituteId) {
-        $instituteName = Institute::where('id', $instituteId)->value('name');
+        $course = Course::with('institute')->find($courseId, ['id','name','full_name','institute_id']);
+        if ($course) {
+            $courseName = [
+                'name' => $course->name,
+                'full_name' => $course->full_name,
+            ];
+            $instituteName = [
+                'name' => $course->institute->name,
+                'description' => $course->institute->description,
+            ];
+        }
     }
 
-    // Helper: flatten, trim, lowercase, count
+    if ($instituteId) {
+        $institute = Institute::find($instituteId, ['id','name','description']);
+        if ($institute) {
+            $instituteName = [
+                'name' => $institute->name,
+                'description' => $institute->description,
+            ];
+        }
+    }
+
+    // Helperss
     $normalizeAndCount = function ($items) {
         return collect($items)
             ->flatMap(fn($value) => is_string($value) ? array_map('trim', explode(',', $value)) : (array)$value)
@@ -113,13 +130,13 @@ class JobFitAnalysisController extends Controller
             ->toArray();
     };
 
-    // Base query
+    // Base query for all
     $query = Career::query()->with(['user.course.institute']);
     if ($courseId) $query->whereHas('user.course', fn($q) => $q->where('id', $courseId));
     elseif ($instituteId) $query->whereHas('user.course', fn($q) => $q->where('institute_id', $instituteId));
     if ($year) $query->whereHas('user', fn($q) => $q->where('batch', $year));
 
-    // Counts
+    // Counting
     $total = (clone $query)->count();
     $relatedCount = (clone $query)->where('fit_category', 'Related')->count();
     $notRelatedCount = $total - $relatedCount;
@@ -313,7 +330,9 @@ class JobFitAnalysisController extends Controller
         'per_course' => [], //$perCourse
         'per_institute' => [], //$perInstitute
         'course_name' => $courseName,
-        'institute_name' => $instituteName
+        'institute_name' => $instituteName,
+        'reference_date' => $referenceMonthDay,
+        'reference_year' => $year
     ]);
 }
 
