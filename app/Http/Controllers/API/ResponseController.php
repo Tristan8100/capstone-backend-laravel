@@ -34,6 +34,15 @@ class ResponseController extends Controller
             ->get();
     }
 
+    public function showBasedSurveyUser($surveyId, $userId)
+    {
+        return Response::with('answers.answerChoices')
+            ->where('user_id', $userId)
+            ->where('survey_id', $surveyId)
+            ->get();
+    }
+
+
     // Submit a survey response or Update (all in, will iterate all)
     public function store(Request $request)
     {
@@ -134,5 +143,33 @@ class ResponseController extends Controller
         $response->delete();
 
         return response()->json(['message' => 'Response deleted.']);
+    }
+
+    public function getRespondents($id)
+    {
+        $survey = Survey::find($id);
+        
+        if (!$survey) {
+            return response()->json(['message' => 'Survey not found'], 404);
+        }
+
+        $responses = Response::where('survey_id', $id)
+            ->with('user')
+            ->paginate(5);
+
+        return response()->json([
+            'survey' => $survey,
+            'respondents' => $responses->items(),
+            'pagination' => [
+                'current_page' => $responses->currentPage(),
+                'last_page' => $responses->lastPage(),
+                'per_page' => $responses->perPage(),
+                'total' => $responses->total(),
+                'next_page' => $responses->nextPageUrl(),
+                'prev_page' => $responses->previousPageUrl(),
+                'has_next' => $responses->hasMorePages(),
+                'has_prev' => $responses->currentPage() > 1
+            ]
+        ]);
     }
 }

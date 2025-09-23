@@ -4,6 +4,7 @@ use App\Http\Controllers\API\SurveyController;
 use App\Http\Controllers\API\QuestionController;
 use App\Http\Controllers\API\ChoiceController;
 use App\Http\Controllers\API\ResponseController;
+use App\Models\Response;
 
 Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Surveys
@@ -47,4 +48,9 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Last resort
     Route::get('/responses/survey/{id}', [ResponseController::class, 'showBasedSurvey']);
 
+    Route::get('/responses/survey/{surveyId}/user/{userId}', [ResponseController::class, 'showBasedSurveyUser']);
+    Route::get('/surveys-responses/{id}', [ResponseController::class, 'getRespondents']);
+
 });
+
+
