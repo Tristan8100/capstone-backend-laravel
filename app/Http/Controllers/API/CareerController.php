@@ -10,6 +10,7 @@ use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\EnumSchema;
 use Illuminate\Support\Facades\Log;
 
 class CareerController extends Controller
@@ -30,6 +31,28 @@ class CareerController extends Controller
         $validated['user_id'] = Auth::id();
         $user = Auth::user();
 
+        // Check overlap if company is not "Freelancer"
+        if (strtolower($validated['company']) !== 'freelancer') {
+            $existingJobs = Career::where('user_id', $user->id)
+                ->where(function ($query) use ($validated) {
+                    $endDate = $validated['end_date'] ?? now();
+
+                    $query->where('start_date', '<=', $endDate)
+                        ->where(function ($q) use ($validated) {
+                            $q->whereNull('end_date')
+                                ->orWhere('end_date', '>=', $validated['start_date']);
+                        });
+                })
+                ->get();
+
+            if ($existingJobs->count() > 0) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This job overlaps with an existing record. Please adjust your dates or mark it as Freelancer.',
+                ], 422);
+            }
+        }
+
         // Safe course info
         $courseName = $user->course?->name ?? 'N/A';
         $courseFull = $user->course?->full_name ?? 'N/A';
@@ -39,10 +62,14 @@ class CareerController extends Controller
             name: 'career_analysis',
             description: 'Determine career fit based on user course, title, description, and skills',
             properties: [
-                new StringSchema('fit_category', 'Either Related or Not Related'),
-                new StringSchema('recommended_jobs', 'JSON array of suggested job titles or roles'),
-                new StringSchema('analysis_notes', 'Short explanation of reasoning for the fit_category'),
-            ],
+                    new EnumSchema(
+                    name: 'fit_category',
+                    description: 'Evaluate the jobs if they are Related or Not Related, if jobs cannot be identified such random words, use Decline',
+                    options: ['Related', 'Not Related', 'Decline']
+                    ),
+                    new StringSchema('recommended_jobs', 'JSON array of suggested job titles or roles'),
+                    new StringSchema('analysis_notes', 'Short explanation of reasoning for the fit_category'),
+                ],
             requiredFields: ['fit_category', 'recommended_jobs', 'analysis_notes']
         );
 
@@ -52,9 +79,9 @@ class CareerController extends Controller
         $prompt .= "Company: {$validated['company']}\n";
         $prompt .= "Description: " . ($validated['description'] ?? 'N/A') . "\n";
         $prompt .= "Skills used: " . (!empty($validated['skills_used']) ? implode(', ', $validated['skills_used']) : 'N/A') . "\n";
-        $prompt .= "Based on this, determine the fit_category (Related/Not Related), recommend other jobs, and provide a short explanation.";
+        $prompt .= "Based on this, determine the fit_category (Related/Not Related) if job cannot be identified such random words, use Decline, recommend other jobs, and provide a short explanation.";
 
-        // Call AI using Prism inside try/catch
+        // Call AI
         try {
             $response = Prism::structured()
                 ->using(Provider::Gemini, 'gemini-2.0-flash')
@@ -62,7 +89,13 @@ class CareerController extends Controller
                 ->withPrompt($prompt)
                 ->asStructured();
 
-            // Fill AI-generated fields
+            // Fill
+            if($response->structured['fit_category'] === 'Decline') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Job declined based on AI analysis.',
+                ], 422);
+            }
             $validated['fit_category']     = $response->structured['fit_category'] ?? null;
             $validated['recommended_jobs'] = $response->structured['recommended_jobs'] ?? null;
             $validated['analysis_notes']   = $response->structured['analysis_notes'] ?? null;
