@@ -49,4 +49,11 @@ Route::middleware('auth:admin-api')->group(function () {
     Route::get('verify-admin', [AuthenticationController::class, 'verifyToken'])->name('verify-user');
 
     Route::post('update-password-admin', [AdminAuthenticationController::class, 'changePasswordAdmin']);
+
+    // FOR SUPER ADMIN
+    Route::post('new-admin', [AdminAuthenticationController::class, 'newAdmin']);
+    Route::post('update-admin/{id}', [AdminAuthenticationController::class, 'update']);
+    Route::delete('delete-admin/{id}', [AdminAuthenticationController::class, 'destroy']);
+    Route::post('set-super-admin', [AdminAuthenticationController::class, 'setSuperAdmin']);
+    Route::get('check-super-admin', [AdminAuthenticationController::class, 'checkIfSuperAdmin']);
 });

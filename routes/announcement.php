@@ -26,3 +26,4 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware(['auth:user-api', 'agent'])->put('/announcements/{announcement}/like', [AnnouncementLikeController::class, 'toggleLike']);
+Route::get('announcements-display', [AnnouncementController::class, 'fetchDisplay']);

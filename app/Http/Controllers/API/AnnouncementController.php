@@ -145,7 +145,7 @@ class AnnouncementController extends Controller
         $announcement = Announcement::create([
             'admin_id' => Auth::guard('admin-api')->id(),
             'title' => $request->title,
-            'content' => $request->content,
+            'content' => $request->input('content'), //idk it errors
         ]);
 
         if ($request->hasFile('images')) {
@@ -154,7 +154,7 @@ class AnnouncementController extends Controller
             
             foreach ($request->file('images') as $imageFile) {
                 if (!$imageFile->isValid()) {
-                    continue; // Skip invalid uploads
+                    continue; //skip invalid uploads
                 }
 
                 try {
@@ -247,6 +247,20 @@ class AnnouncementController extends Controller
         
         return response()->json([
             'message' => 'Announcement and all associated images deleted successfully.'
+        ]);
+    }
+
+    public function fetchDisplay()
+    {
+        $announcements = Announcement::with('images')
+            ->has('images')           // only announcements with images
+            ->orderBy('id', 'desc')   // order by newest
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $announcements
         ]);
     }
 }

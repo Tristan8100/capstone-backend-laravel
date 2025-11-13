@@ -22,6 +22,7 @@ require __DIR__ . '/analytics.php'; //edit image DONE
 require __DIR__ . '/conversations.php';
 require __DIR__ . '/career.php'; // CAREER TRACKING
 require __DIR__ . '/jobfit.php'; // JOB FIT ANALYSIS
+require __DIR__ . '/activity_logs.php';
 
 // FOR TESTING ONLY
 Route::get('/qr-test', function () {

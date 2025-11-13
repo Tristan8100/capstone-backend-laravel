@@ -15,11 +15,16 @@ class Admin extends Authenticatable
     protected $guard = 'admin';
 
     protected $fillable = [
-        'name', 'email', 'password', 'profile_path',
+        'name', 'email', 'password', 'profile_path', 'super_admin', 'email_verified_at'
     ];
 
     protected $hidden = [
         'password', 'remember_token',
+    ];
+
+    protected $casts = [
+        'super_admin' => 'boolean',
+        'email_verified_at' => 'datetime',
     ];
 
     public function getFullNameAttribute()
@@ -31,4 +36,10 @@ class Admin extends Authenticatable
     {
         return $this->hasMany(Announcement::class);
     }
+
+    public function activityLogs()
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
 }
