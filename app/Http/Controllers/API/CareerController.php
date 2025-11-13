@@ -141,6 +141,28 @@ class CareerController extends Controller
 
         $user = Auth::user();
 
+// Check overlap if company is not "Freelancer"
+        if (strtolower($validated['company']) !== 'freelancer') {
+            $existingJobs = Career::where('user_id', $user->id)
+                ->where(function ($query) use ($validated) {
+                    $endDate = $validated['end_date'] ?? now();
+
+                    $query->where('start_date', '<=', $endDate)
+                        ->where(function ($q) use ($validated) {
+                            $q->whereNull('end_date')
+                                ->orWhere('end_date', '>=', $validated['start_date']);
+                        });
+                })
+                ->get();
+
+            if ($existingJobs->count() > 0) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This job overlaps with an existing record. Please adjust your dates or mark it as Freelancer.',
+                ], 422);
+            }
+}
+        
         // Safe course info
         $courseName = $user->course?->name ?? 'N/A';
         $courseFull = $user->course?->full_name ?? 'N/A';
