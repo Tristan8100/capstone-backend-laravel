@@ -9,10 +9,10 @@ use App\Models\Response;
 Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Surveys
     Route::get('/surveys', [SurveyController::class, 'index']);
-    Route::get('/surveys-admin', [SurveyController::class, 'index2']); // Admin view //PUT STATUS
-    Route::get('/surveys-alumni', [SurveyController::class, 'indexAlumni']);// Alumni view // PUT STATUS //DONE not tested //ONE TO MANY: NOT DONE
+    Route::get('/surveys-admin', [SurveyController::class, 'index2']); // Admin view //PUT STATUS //BATCHES FILTERING
+    Route::get('/surveys-alumni', [SurveyController::class, 'indexAlumni']);// Alumni view // PUT STATUS //DONE not tested //ONE TO MANY: NOT DONE //BATCHES FILTERING
     Route::get('/surveys/{id}', [SurveyController::class, 'show']);
-    Route::post('/surveys', [SurveyController::class, 'store']); // modify for course (not yet implemented) //ONE TO MANY: NOT DONE
+    Route::post('/surveys', [SurveyController::class, 'store']); // modify for course (not yet implemented) //ONE TO MANY: NOT DONE // BATCH FILTERING
     Route::put('/surveys/{id}', [SurveyController::class, 'update']); // PUT STATUS //DONE not tested
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy']);
 
@@ -42,7 +42,7 @@ Route::middleware(['auth:sanctum', 'agent'])->group(function () {
     // Responses
     Route::get('/responses', [ResponseController::class, 'index']);
     Route::get('/responses/{id}', [ResponseController::class, 'show']);
-    Route::post('/responses', [ResponseController::class, 'store']); // modify for course (not yet implemented) //ONE TO MANY: NOT DONE
+    Route::post('/responses', [ResponseController::class, 'store']); // modify for course (not yet implemented) //ONE TO MANY: NOT DONE // BATCH FILTERING
     Route::delete('/responses/{id}', [ResponseController::class, 'destroy']);
 
     // Last resort

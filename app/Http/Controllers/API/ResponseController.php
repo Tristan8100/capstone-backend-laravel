@@ -58,20 +58,25 @@ class ResponseController extends Controller
         $user = Auth::user();
         $survey = Survey::with('questions')->findOrFail($validated['survey_id']);
 
-        // --- Check course and institute restrictions via limits JSON ---
+        //check limits
         $userCourseId = $user->course_id;
         $userInstituteId = $user->course?->institute_id;
+        $userBatch = $user->batch;
 
         $allowedCourses = $survey->limits['courses'] ?? [];
         $allowedInstitutes = $survey->limits['institutes'] ?? [];
+        $allowedBatches = $survey->limits['batches'] ?? [];
 
-        if ($survey->limits && !in_array($userCourseId, $allowedCourses) && !in_array($userInstituteId, $allowedInstitutes)) {
+        // Add batch check
+        $batchAllowed = empty($allowedBatches) || in_array($userBatch, $allowedBatches);
+
+        if ($survey->limits && !in_array($userCourseId, $allowedCourses) && !in_array($userInstituteId, $allowedInstitutes) || !$batchAllowed) {
             return response()->json([
                 'message' => 'You are not allowed to answer this survey.'
             ], 403);
         }
 
-        // --- Ensure all questions are answered ---
+        // map each question to check
         $allQuestionsAnswered = true;
 
         foreach ($survey->questions as $question) {
@@ -87,7 +92,7 @@ class ResponseController extends Controller
                 break;
             }
 
-            if (in_array($question->question_type, ['radio', 'checkbox']) && empty($answer['choice_ids'])) {
+            if (in_array($question->question_type, ['radio', 'checkbox']) && empty($answer['choice_ids'] ?? [])) {
                 $allQuestionsAnswered = false;
                 break;
             }
@@ -99,7 +104,7 @@ class ResponseController extends Controller
             ], 422);
         }
 
-        // --- Update or create the response (one per user per survey) ---
+        // rewrite save
         $response = Response::updateOrCreate(
             [
                 'survey_id' => $validated['survey_id'],

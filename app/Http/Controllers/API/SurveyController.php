@@ -78,18 +78,33 @@ class SurveyController extends Controller
             $limits = is_array($survey->limits) ? $survey->limits : json_decode($survey->limits, true) ?? [];
             $allowedCourses = $limits['courses'] ?? [];
             $allowedInstitutes = $limits['institutes'] ?? [];
+            $allowedBatches = $limits['batches'] ?? [];
 
             $userCourseId = $user->course?->id;
             $userInstituteId = $user->course?->institute_id;
 
-            // No limits or empty limits → visible to all
-            if (empty($allowedCourses) && empty($allowedInstitutes)) {
-                return true;
-            }
+            // Batch filter first (overrides everything)
+        if (!empty($allowedBatches) && !in_array($user->batch, $allowedBatches)) {
+            return false;
+        }
 
-            // Only include if user's course or institute matches
-            return in_array($userCourseId, $allowedCourses)
-                || in_array($userInstituteId, $allowedInstitutes);
+        // No limits at all → visible
+        if (empty($allowedCourses) && empty($allowedInstitutes)) {
+            return true;
+        }
+
+        // Course explicitly allowed → always include
+        if (!empty($allowedCourses) && in_array($userCourseId, $allowedCourses)) {
+            return true;
+        }
+
+        // Institute limit → include if user's institute is allowed
+        if (!empty($allowedInstitutes) && in_array($userInstituteId, $allowedInstitutes)) {
+            return true;
+        }
+
+        // Otherwise, exclude
+        return false;
         })->values()
     );
 
@@ -132,6 +147,7 @@ class SurveyController extends Controller
                 $survey->limits = [
                     'courses' => $courses,
                     'institutes' => $institutes,
+                    'batches' => $limits['batches'] ?? [], // Added batch filtering
                 ];
 
                 return $survey;
@@ -171,16 +187,19 @@ class SurveyController extends Controller
             'limits.courses.*' => 'string|exists:courses,id',
             'limits.institutes' => 'nullable|array',
             'limits.institutes.*' => 'string|exists:institutes,id',
+            'limits.batches' => 'nullable|array', //also array
+            'limits.batches.*' => 'integer', //added batch filtering
         ]);
 
         $validated['status'] = 'pending';
 
         $survey = Survey::create($validated);
 
-        // TRIVIA: Need to map the same response in get to store in typescript so it auto changes
+        // limits structuring
         $survey->limits = [
             'courses' => Course::whereIn('id', $validated['limits']['courses'] ?? [])->pluck('name')->toArray(),
             'institutes' => Institute::whereIn('id', $validated['limits']['institutes'] ?? [])->pluck('name')->toArray(),
+            'batches' => $validated['limits']['batches'] ?? [],
         ];
 
         return $survey;
@@ -222,8 +241,8 @@ class SurveyController extends Controller
             'questions.*.choices.*.choice_text' => 'required_with:questions.*.choices|string',
         ]);
 
-        // Wrap the entire operation in a database transaction
-        DB::transaction(function () use ($validated, $id, &$survey) {
+        // Wrap the entire operation in a database transaction and return the survey
+        $survey = DB::transaction(function () use ($validated, $id) {
             if ($id) {
                 // Update existing survey
                 $survey = Survey::findOrFail($id);
@@ -257,7 +276,15 @@ class SurveyController extends Controller
                     }
                 }
             }
+
+            // return the survey
+            return $survey;
         });
+
+        // Guard not null
+        if (!$survey || !isset($survey->id)) {
+            return response()->json(['message' => 'Failed to create or update survey.'], 500);
+        }
 
         $survey = Survey::with('questions.choices')->findOrFail($survey->id);
 
